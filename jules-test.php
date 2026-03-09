@@ -53,16 +53,35 @@ function jules_menu_admin() {
 }
 add_action('admin_menu', 'jules_menu_admin');
 
-// Función para procesar la subida o actualización de datos
+// Función para procesar la subida, actualización o eliminación de datos
 function jules_procesar_datos() {
+    global $wpdb;
+    $tabla_nombre = $wpdb->prefix . 'jules_datos';
+
+    // Manejar Eliminación
+    if (isset($_GET['action']) && $_GET['action'] === 'delete' && isset($_GET['id'])) {
+        $id_a_eliminar = intval($_GET['id']);
+
+        // Verificar nonce de eliminación
+        if (!isset($_GET['_wpnonce']) || !wp_verify_nonce($_GET['_wpnonce'], 'jules_eliminar_datos_' . $id_a_eliminar)) {
+            wp_die('Error de seguridad. No se puede procesar la eliminación.');
+        }
+
+        $resultado = $wpdb->delete($tabla_nombre, array('id' => $id_a_eliminar), array('%d'));
+
+        if ($resultado) {
+            echo '<div class="updated"><p>Registro eliminado correctamente.</p></div>';
+        } else {
+            echo '<div class="error"><p>Hubo un error al eliminar el registro.</p></div>';
+        }
+    }
+
+    // Manejar Guardado/Actualización
     if (isset($_POST['submit_datos'])) {
         // Verificar nonce por seguridad
         if (!isset($_POST['jules_nonce']) || !wp_verify_nonce($_POST['jules_nonce'], 'jules_guardar_datos')) {
             wp_die('Error de seguridad. No se puede procesar la solicitud.');
         }
-
-        global $wpdb;
-        $tabla_nombre = $wpdb->prefix . 'jules_datos';
 
         $nombre = sanitize_text_field($_POST['nombre']);
         $apellido = sanitize_text_field($_POST['apellido']);
@@ -124,7 +143,12 @@ function jules_pagina_admin() {
 
     ?>
     <div class="wrap">
-        <h1>Prueba de Jules - <?php echo $titulo_pagina; ?></h1>
+        <h1>
+            Prueba de Jules - <?php echo $titulo_pagina; ?>
+            <?php if ($item_a_editar) : ?>
+                <a href="admin.php?page=jules-prueba" class="page-title-action">Añadir Nuevo</a>
+            <?php endif; ?>
+        </h1>
 
         <form method="post" action="admin.php?page=jules-prueba">
             <?php wp_nonce_field('jules_guardar_datos', 'jules_nonce'); ?>
@@ -174,7 +198,10 @@ function jules_pagina_admin() {
                             <td><?php echo esc_html($fila->nombre); ?></td>
                             <td><?php echo esc_html($fila->apellido); ?></td>
                             <td>
-                                <a href="admin.php?page=jules-prueba&edit_id=<?php echo intval($fila->id); ?>">Editar</a>
+                                <a href="admin.php?page=jules-prueba&edit_id=<?php echo intval($fila->id); ?>">Editar</a> |
+                                <a href="<?php echo wp_nonce_url('admin.php?page=jules-prueba&action=delete&id=' . $fila->id, 'jules_eliminar_datos_' . $fila->id); ?>"
+                                   onclick="return confirm('¿Estás seguro de que deseas eliminar este registro?');"
+                                   style="color:red;">Eliminar</a>
                             </td>
                         </tr>
                     <?php endforeach; ?>
