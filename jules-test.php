@@ -1,7 +1,7 @@
 <?php
 /*
 Plugin Name: Prueba de Jules
-Description: Un plugin simple de prueba para mostrar un aviso y guardar datos.
+Description: guardar datos
 Version: 1.1
 Author: Jules
 */
