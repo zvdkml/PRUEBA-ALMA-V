@@ -53,7 +53,7 @@ function jules_menu_admin() {
 }
 add_action('admin_menu', 'jules_menu_admin');
 
-// Función para procesar la subida de datos
+// Función para procesar la subida o actualización de datos
 function jules_procesar_datos() {
     if (isset($_POST['submit_datos'])) {
         // Verificar nonce por seguridad
@@ -66,18 +66,34 @@ function jules_procesar_datos() {
 
         $nombre = sanitize_text_field($_POST['nombre']);
         $apellido = sanitize_text_field($_POST['apellido']);
+        $item_id = isset($_POST['item_id']) ? intval($_POST['item_id']) : 0;
 
         if (!empty($nombre) && !empty($apellido)) {
-            $resultado = $wpdb->insert(
-                $tabla_nombre,
-                array(
-                    'nombre' => $nombre,
-                    'apellido' => $apellido,
-                ),
-                array('%s', '%s')
-            );
+            if ($item_id > 0) {
+                // Actualizar registro existente
+                $resultado = $wpdb->update(
+                    $tabla_nombre,
+                    array(
+                        'nombre' => $nombre,
+                        'apellido' => $apellido,
+                    ),
+                    array('id' => $item_id),
+                    array('%s', '%s'),
+                    array('%d')
+                );
+            } else {
+                // Insertar nuevo registro
+                $resultado = $wpdb->insert(
+                    $tabla_nombre,
+                    array(
+                        'nombre' => $nombre,
+                        'apellido' => $apellido,
+                    ),
+                    array('%s', '%s')
+                );
+            }
 
-            if ($resultado) {
+            if ($resultado !== false) {
                 echo '<div class="updated"><p>Datos guardados correctamente.</p></div>';
             } else {
                 echo '<div class="error"><p>Hubo un error al guardar los datos.</p></div>';
@@ -91,27 +107,47 @@ function jules_pagina_admin() {
     global $wpdb;
     $tabla_nombre = $wpdb->prefix . 'jules_datos';
 
+    $edit_id = isset($_GET['edit_id']) ? intval($_GET['edit_id']) : 0;
+    $item_a_editar = null;
+
+    if ($edit_id > 0) {
+        $item_a_editar = $wpdb->get_row($wpdb->prepare("SELECT * FROM $tabla_nombre WHERE id = %d", $edit_id));
+    }
+
     // Manejo de la lógica de guardado
     jules_procesar_datos();
 
+    $nombre_valor = $item_a_editar ? esc_attr($item_a_editar->nombre) : '';
+    $apellido_valor = $item_a_editar ? esc_attr($item_a_editar->apellido) : '';
+    $boton_texto = $item_a_editar ? 'Actualizar Datos' : 'Guardar Datos';
+    $titulo_pagina = $item_a_editar ? 'Editar Registro' : 'Registro de Datos';
+
     ?>
     <div class="wrap">
-        <h1>Prueba de Jules - Registro de Datos</h1>
+        <h1>Prueba de Jules - <?php echo $titulo_pagina; ?></h1>
 
-        <form method="post" action="">
+        <form method="post" action="admin.php?page=jules-prueba">
             <?php wp_nonce_field('jules_guardar_datos', 'jules_nonce'); ?>
+
+            <?php if ($item_a_editar) : ?>
+                <input type="hidden" name="item_id" value="<?php echo intval($item_a_editar->id); ?>">
+            <?php endif; ?>
+
             <table class="form-table">
                 <tr>
                     <th scope="row"><label for="nombre">Nombre</label></th>
-                    <td><input name="nombre" type="text" id="nombre" value="" class="regular-text" required></td>
+                    <td><input name="nombre" type="text" id="nombre" value="<?php echo $nombre_valor; ?>" class="regular-text" required></td>
                 </tr>
                 <tr>
                     <th scope="row"><label for="apellido">Apellido</label></th>
-                    <td><input name="apellido" type="text" id="apellido" value="" class="regular-text" required></td>
+                    <td><input name="apellido" type="text" id="apellido" value="<?php echo $apellido_valor; ?>" class="regular-text" required></td>
                 </tr>
             </table>
             <p class="submit">
-                <input type="submit" name="submit_datos" id="submit" class="button button-primary" value="Guardar Datos">
+                <input type="submit" name="submit_datos" id="submit" class="button button-primary" value="<?php echo $boton_texto; ?>">
+                <?php if ($item_a_editar) : ?>
+                    <a href="admin.php?page=jules-prueba" class="button">Cancelar Edición</a>
+                <?php endif; ?>
             </p>
         </form>
 
@@ -127,6 +163,7 @@ function jules_pagina_admin() {
                     <th>ID</th>
                     <th>Nombre</th>
                     <th>Apellido</th>
+                    <th>Acciones</th>
                 </tr>
             </thead>
             <tbody>
@@ -136,11 +173,14 @@ function jules_pagina_admin() {
                             <td><?php echo esc_html($fila->id); ?></td>
                             <td><?php echo esc_html($fila->nombre); ?></td>
                             <td><?php echo esc_html($fila->apellido); ?></td>
+                            <td>
+                                <a href="admin.php?page=jules-prueba&edit_id=<?php echo intval($fila->id); ?>">Editar</a>
+                            </td>
                         </tr>
                     <?php endforeach; ?>
                 <?php else : ?>
                     <tr>
-                        <td colspan="3">No hay datos registrados aún.</td>
+                        <td colspan="4">No hay datos registrados aún.</td>
                     </tr>
                 <?php endif; ?>
             </tbody>
