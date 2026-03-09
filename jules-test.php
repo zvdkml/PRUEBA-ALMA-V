@@ -38,6 +38,35 @@ function jules_mostrar_aviso_admin() {
     </div>
     <?php
 }
+
+// Función para el shortcode [jules_datos]
+function jules_shortcode_datos($atts) {
+    global $wpdb;
+    $tabla_nombre = $wpdb->prefix . 'jules_datos';
+    $resultados = $wpdb->get_results("SELECT * FROM $tabla_nombre ORDER BY id DESC");
+
+    $output = '<div class="jules-datos-display">';
+    $output .= '<h3>Lista de Nombres y Apellidos</h3>';
+    $output .= '<table style="width:100%; border-collapse: collapse; border: 1px solid #ccc;">';
+    $output .= '<thead><tr><th style="border: 1px solid #ccc; padding: 8px;">Nombre</th><th style="border: 1px solid #ccc; padding: 8px;">Apellido</th></tr></thead>';
+    $output .= '<tbody>';
+
+    if ($resultados) {
+        foreach ($resultados as $fila) {
+            $output .= '<tr>';
+            $output .= '<td style="border: 1px solid #ccc; padding: 8px;">' . esc_html($fila->nombre) . '</td>';
+            $output .= '<td style="border: 1px solid #ccc; padding: 8px;">' . esc_html($fila->apellido) . '</td>';
+            $output .= '</tr>';
+        }
+    } else {
+        $output .= '<tr><td colspan="2" style="border: 1px solid #ccc; padding: 8px; text-align:center;">No hay datos registrados aún.</td></tr>';
+    }
+
+    $output .= '</tbody></table></div>';
+
+    return $output;
+}
+add_shortcode('jules_datos', 'jules_shortcode_datos');
 add_action('admin_notices', 'jules_mostrar_aviso_admin');
 
 // Añadir el menú de administración
