@@ -11,21 +11,32 @@ if (!defined('ABSPATH')) {
     exit;
 }
 
-// Función para crear la tabla al activar el plugin
+// Función para crear las tablas al activar el plugin
 function jules_crear_tabla() {
     global $wpdb;
-    $tabla_nombre = $wpdb->prefix . 'jules_datos';
     $charset_collate = $wpdb->get_charset_collate();
+    require_once(ABSPATH . 'wp-admin/includes/upgrade.php');
 
-    $sql = "CREATE TABLE $tabla_nombre (
+    // Tabla de datos principales
+    $tabla_datos = $wpdb->prefix . 'jules_datos';
+    $sql_datos = "CREATE TABLE $tabla_datos (
         id mediumint(9) NOT NULL AUTO_INCREMENT,
         nombre varchar(100) NOT NULL,
         apellido varchar(100) NOT NULL,
         PRIMARY KEY  (id)
     ) $charset_collate;";
+    dbDelta($sql_datos);
 
-    require_once(ABSPATH . 'wp-admin/includes/upgrade.php');
-    dbDelta($sql);
+    // Tabla de notas
+    $tabla_notas = $wpdb->prefix . 'jules_notas';
+    $sql_notas = "CREATE TABLE $tabla_notas (
+        id mediumint(9) NOT NULL AUTO_INCREMENT,
+        jules_dato_id mediumint(9) NOT NULL,
+        curso varchar(100) NOT NULL,
+        nota text NOT NULL,
+        PRIMARY KEY  (id)
+    ) $charset_collate;";
+    dbDelta($sql_notas);
 }
 
 register_activation_hook(__FILE__, 'jules_crear_tabla');
@@ -35,6 +46,126 @@ function jules_mostrar_aviso_admin() {
     ?>
     <div class="notice notice-success is-dismissible">
         <p>¡Hola! Este plugin fue creado por Jules.</p>
+    </div>
+    <?php
+}
+
+// Página de administración para Notas: UI (Formulario y Visualización)
+function jules_pagina_notas_admin() {
+    global $wpdb;
+    $tabla_notas = $wpdb->prefix . 'jules_notas';
+    $tabla_datos = $wpdb->prefix . 'jules_datos';
+
+    $edit_id = isset($_GET['edit_id']) ? intval($_GET['edit_id']) : 0;
+    $item_a_editar = null;
+
+    if ($edit_id > 0) {
+        $item_a_editar = $wpdb->get_row($wpdb->prepare("SELECT * FROM $tabla_notas WHERE id = %d", $edit_id));
+    }
+
+    // Manejo de la lógica de guardado/eliminación de notas
+    jules_procesar_notas();
+
+    $dato_id_valor = $item_a_editar ? $item_a_editar->jules_dato_id : 0;
+    $curso_valor = $item_a_editar ? esc_attr($item_a_editar->curso) : '';
+    $nota_valor = $item_a_editar ? esc_textarea($item_a_editar->nota) : '';
+    $boton_texto = $item_a_editar ? 'Actualizar Nota' : 'Guardar Nota';
+    $titulo_pagina = $item_a_editar ? 'Editar Nota' : 'Gestionar Notas';
+
+    // Obtener lista de personas para el dropdown
+    $personas = $wpdb->get_results("SELECT id, nombre, apellido FROM $tabla_datos ORDER BY nombre ASC");
+
+    ?>
+    <div class="wrap">
+        <h1>
+            Prueba de Jules - <?php echo $titulo_pagina; ?>
+            <?php if ($item_a_editar) : ?>
+                <a href="admin.php?page=jules-notas" class="page-title-action">Añadir Nueva</a>
+            <?php endif; ?>
+        </h1>
+
+        <form method="post" action="admin.php?page=jules-notas">
+            <?php wp_nonce_field('jules_guardar_notas', 'jules_notas_nonce'); ?>
+
+            <?php if ($item_a_editar) : ?>
+                <input type="hidden" name="item_id" value="<?php echo intval($item_a_editar->id); ?>">
+            <?php endif; ?>
+
+            <table class="form-table">
+                <tr>
+                    <th scope="row"><label for="jules_dato_id">Persona</label></th>
+                    <td>
+                        <select name="jules_dato_id" id="jules_dato_id" required>
+                            <option value="">Seleccione una persona...</option>
+                            <?php foreach ($personas as $persona) : ?>
+                                <option value="<?php echo intval($persona->id); ?>" <?php selected($dato_id_valor, $persona->id); ?>>
+                                    <?php echo esc_html($persona->nombre . ' ' . $persona->apellido); ?>
+                                </option>
+                            <?php endforeach; ?>
+                        </select>
+                    </td>
+                </tr>
+                <tr>
+                    <th scope="row"><label for="curso">Curso</label></th>
+                    <td><input name="curso" type="text" id="curso" value="<?php echo $curso_valor; ?>" class="regular-text" required></td>
+                </tr>
+                <tr>
+                    <th scope="row"><label for="nota">Nota</label></th>
+                    <td><textarea name="nota" id="nota" rows="5" class="large-text" required><?php echo $nota_valor; ?></textarea></td>
+                </tr>
+            </table>
+            <p class="submit">
+                <input type="submit" name="submit_nota" id="submit" class="button button-primary" value="<?php echo $boton_texto; ?>">
+                <?php if ($item_a_editar) : ?>
+                    <a href="admin.php?page=jules-notas" class="button">Cancelar Edición</a>
+                <?php endif; ?>
+            </p>
+        </form>
+
+        <hr>
+
+        <h2>Notas Registradas</h2>
+        <?php
+        $query = "
+            SELECT n.*, d.nombre, d.apellido
+            FROM $tabla_notas n
+            LEFT JOIN $tabla_datos d ON n.jules_dato_id = d.id
+            ORDER BY n.id DESC";
+        $resultados = $wpdb->get_results($query);
+        ?>
+        <table class="wp-list-table widefat fixed striped">
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Persona</th>
+                    <th>Curso</th>
+                    <th>Nota</th>
+                    <th>Acciones</th>
+                </tr>
+            </thead>
+            <tbody>
+                <?php if ($resultados) : ?>
+                    <?php foreach ($resultados as $fila) : ?>
+                        <tr>
+                            <td><?php echo esc_html($fila->id); ?></td>
+                            <td><?php echo esc_html($fila->nombre . ' ' . $fila->apellido); ?></td>
+                            <td><?php echo esc_html($fila->curso); ?></td>
+                            <td><?php echo nl2br(esc_html($fila->nota)); ?></td>
+                            <td>
+                                <a href="admin.php?page=jules-notas&edit_id=<?php echo intval($fila->id); ?>">Editar</a> |
+                                <a href="<?php echo wp_nonce_url('admin.php?page=jules-notas&action=delete_nota&id=' . $fila->id, 'jules_eliminar_nota_' . $fila->id); ?>"
+                                   onclick="return confirm('¿Estás seguro de que deseas eliminar esta nota?');"
+                                   style="color:red;">Eliminar</a>
+                            </td>
+                        </tr>
+                    <?php endforeach; ?>
+                <?php else : ?>
+                    <tr>
+                        <td colspan="5">No hay notas registradas aún.</td>
+                    </tr>
+                <?php endif; ?>
+            </tbody>
+        </table>
     </div>
     <?php
 }
@@ -67,10 +198,123 @@ function jules_shortcode_datos($atts) {
     return $output;
 }
 add_shortcode('jules_datos', 'jules_shortcode_datos');
+
+// Función para el shortcode [jules_notas]
+function jules_shortcode_notas($atts) {
+    global $wpdb;
+    $tabla_notas = $wpdb->prefix . 'jules_notas';
+    $tabla_datos = $wpdb->prefix . 'jules_datos';
+
+    $query = "
+        SELECT n.*, d.nombre, d.apellido
+        FROM $tabla_notas n
+        LEFT JOIN $tabla_datos d ON n.jules_dato_id = d.id
+        ORDER BY n.id DESC";
+    $resultados = $wpdb->get_results($query);
+
+    $output = '<div class="jules-notas-display">';
+    $output .= '<h3>Notas Registradas</h3>';
+    $output .= '<table style="width:100%; border-collapse: collapse; border: 1px solid #ccc;">';
+    $output .= '<thead><tr>';
+    $output .= '<th style="border: 1px solid #ccc; padding: 8px;">Persona</th>';
+    $output .= '<th style="border: 1px solid #ccc; padding: 8px;">Curso</th>';
+    $output .= '<th style="border: 1px solid #ccc; padding: 8px;">Nota</th>';
+    $output .= '</tr></thead>';
+    $output .= '<tbody>';
+
+    if ($resultados) {
+        foreach ($resultados as $fila) {
+            $output .= '<tr>';
+            $output .= '<td style="border: 1px solid #ccc; padding: 8px;">' . esc_html($fila->nombre . ' ' . $fila->apellido) . '</td>';
+            $output .= '<td style="border: 1px solid #ccc; padding: 8px;">' . esc_html($fila->curso) . '</td>';
+            $output .= '<td style="border: 1px solid #ccc; padding: 8px;">' . nl2br(esc_html($fila->nota)) . '</td>';
+            $output .= '</tr>';
+        }
+    } else {
+        $output .= '<tr><td colspan="3" style="border: 1px solid #ccc; padding: 8px; text-align:center;">No hay notas registradas aún.</td></tr>';
+    }
+
+    $output .= '</tbody></table></div>';
+
+    return $output;
+}
+add_shortcode('jules_notas', 'jules_shortcode_notas');
 add_action('admin_notices', 'jules_mostrar_aviso_admin');
+
+// Función para procesar la subida, actualización o eliminación de NOTAS
+function jules_procesar_notas() {
+    global $wpdb;
+    $tabla_notas = $wpdb->prefix . 'jules_notas';
+
+    // Manejar Eliminación de Notas
+    if (isset($_GET['action']) && $_GET['action'] === 'delete_nota' && isset($_GET['id'])) {
+        $id_a_eliminar = intval($_GET['id']);
+
+        // Verificar nonce de eliminación
+        if (!isset($_GET['_wpnonce']) || !wp_verify_nonce($_GET['_wpnonce'], 'jules_eliminar_nota_' . $id_a_eliminar)) {
+            wp_die('Error de seguridad. No se puede procesar la eliminación.');
+        }
+
+        $resultado = $wpdb->delete($tabla_notas, array('id' => $id_a_eliminar), array('%d'));
+
+        if ($resultado) {
+            echo '<div class="updated"><p>Nota eliminada correctamente.</p></div>';
+        } else {
+            echo '<div class="error"><p>Hubo un error al eliminar la nota.</p></div>';
+        }
+    }
+
+    // Manejar Guardado/Actualización de Notas
+    if (isset($_POST['submit_nota'])) {
+        // Verificar nonce por seguridad
+        if (!isset($_POST['jules_notas_nonce']) || !wp_verify_nonce($_POST['jules_notas_nonce'], 'jules_guardar_notas')) {
+            wp_die('Error de seguridad. No se puede procesar la solicitud.');
+        }
+
+        $jules_dato_id = intval($_POST['jules_dato_id']);
+        $curso = sanitize_text_field($_POST['curso']);
+        $nota = sanitize_textarea_field($_POST['nota']);
+        $item_id = isset($_POST['item_id']) ? intval($_POST['item_id']) : 0;
+
+        if ($jules_dato_id > 0 && !empty($curso) && !empty($nota)) {
+            if ($item_id > 0) {
+                // Actualizar nota existente
+                $resultado = $wpdb->update(
+                    $tabla_notas,
+                    array(
+                        'jules_dato_id' => $jules_dato_id,
+                        'curso' => $curso,
+                        'nota' => $nota,
+                    ),
+                    array('id' => $item_id),
+                    array('%d', '%s', '%s'),
+                    array('%d')
+                );
+            } else {
+                // Insertar nueva nota
+                $resultado = $wpdb->insert(
+                    $tabla_notas,
+                    array(
+                        'jules_dato_id' => $jules_dato_id,
+                        'curso' => $curso,
+                        'nota' => $nota,
+                    ),
+                    array('%d', '%s', '%s')
+                );
+            }
+
+            if ($resultado !== false) {
+                echo '<div class="updated"><p>Nota guardada correctamente.</p></div>';
+            } else {
+                echo '<div class="error"><p>Hubo un error al guardar la nota.</p></div>';
+            }
+        }
+    }
+}
 
 // Añadir el menú de administración
 function jules_menu_admin() {
+    // Menú principal
     add_menu_page(
         'Prueba de Jules',
         'Prueba de Jules',
@@ -78,6 +322,16 @@ function jules_menu_admin() {
         'jules-prueba',
         'jules_pagina_admin',
         'dashicons-admin-plugins'
+    );
+
+    // Submenú para Notas
+    add_submenu_page(
+        'jules-prueba',
+        'Gestionar Notas',
+        'Gestionar Notas',
+        'manage_options',
+        'jules-notas',
+        'jules_pagina_notas_admin'
     );
 }
 add_action('admin_menu', 'jules_menu_admin');
