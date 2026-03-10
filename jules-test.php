@@ -32,9 +32,9 @@ function jules_crear_tabla() {
     $sql_notas = "CREATE TABLE $tabla_notas (
         id mediumint(9) NOT NULL AUTO_INCREMENT,
         jules_dato_id mediumint(9) NOT NULL,
-        curso varchar(100) NOT NULL,
+        id_curso mediumint(9) NOT NULL,
+        id_doce mediumint(9) NOT NULL,
         nota text NOT NULL,
-        docente_nombre varchar(100) NOT NULL,
         estado varchar(50) NOT NULL,
         PRIMARY KEY  (id)
     ) $charset_collate;";
@@ -89,15 +89,17 @@ function jules_pagina_notas_admin() {
     jules_procesar_notas();
 
     $dato_id_valor = $item_a_editar ? $item_a_editar->jules_dato_id : 0;
-    $curso_valor = $item_a_editar ? esc_attr($item_a_editar->curso) : '';
+    $curso_id_valor = $item_a_editar ? $item_a_editar->id_curso : 0;
+    $doce_id_valor = $item_a_editar ? $item_a_editar->id_doce : 0;
     $nota_valor = $item_a_editar ? esc_textarea($item_a_editar->nota) : '';
-    $docente_valor = $item_a_editar ? esc_attr($item_a_editar->docente_nombre) : '';
     $estado_valor = $item_a_editar ? esc_attr($item_a_editar->estado) : '';
     $boton_texto = $item_a_editar ? 'Actualizar Nota' : 'Guardar Nota';
     $titulo_pagina = $item_a_editar ? 'Editar Nota' : 'Gestionar Notas';
 
-    // Obtener lista de personas para el dropdown
+    // Obtener listas para los dropdowns
     $personas = $wpdb->get_results("SELECT id, nombre, apellido FROM $tabla_datos ORDER BY nombre ASC");
+    $cursos = $wpdb->get_results("SELECT id_curso, nombre_del_curso FROM {$wpdb->prefix}jules_cursos ORDER BY nombre_del_curso ASC");
+    $docentes = $wpdb->get_results("SELECT id_doce, nombres, apellidos FROM {$wpdb->prefix}jules_docentes ORDER BY nombres ASC");
 
     ?>
     <div class="wrap">
@@ -130,16 +132,34 @@ function jules_pagina_notas_admin() {
                     </td>
                 </tr>
                 <tr>
-                    <th scope="row"><label for="curso">Curso</label></th>
-                    <td><input name="curso" type="text" id="curso" value="<?php echo $curso_valor; ?>" class="regular-text" required></td>
+                    <th scope="row"><label for="id_curso">Curso</label></th>
+                    <td>
+                        <select name="id_curso" id="id_curso" required>
+                            <option value="">Seleccione un curso...</option>
+                            <?php foreach ($cursos as $curso) : ?>
+                                <option value="<?php echo intval($curso->id_curso); ?>" <?php selected($curso_id_valor, $curso->id_curso); ?>>
+                                    <?php echo esc_html($curso->nombre_del_curso); ?>
+                                </option>
+                            <?php endforeach; ?>
+                        </select>
+                    </td>
+                </tr>
+                <tr>
+                    <th scope="row"><label for="id_doce">Docente</label></th>
+                    <td>
+                        <select name="id_doce" id="id_doce" required>
+                            <option value="">Seleccione un docente...</option>
+                            <?php foreach ($docentes as $docente) : ?>
+                                <option value="<?php echo intval($docente->id_doce); ?>" <?php selected($doce_id_valor, $docente->id_doce); ?>>
+                                    <?php echo esc_html($docente->nombres . ' ' . $docente->apellidos); ?>
+                                </option>
+                            <?php endforeach; ?>
+                        </select>
+                    </td>
                 </tr>
                 <tr>
                     <th scope="row"><label for="nota">Nota</label></th>
                     <td><textarea name="nota" id="nota" rows="5" class="large-text" required><?php echo $nota_valor; ?></textarea></td>
-                </tr>
-                <tr>
-                    <th scope="row"><label for="docente_nombre">Docente</label></th>
-                    <td><input name="docente_nombre" type="text" id="docente_nombre" value="<?php echo $docente_valor; ?>" class="regular-text" required></td>
                 </tr>
                 <tr>
                     <th scope="row"><label for="estado">Estado</label></th>
@@ -159,9 +179,11 @@ function jules_pagina_notas_admin() {
         <h2>Notas Registradas</h2>
         <?php
         $query = "
-            SELECT n.*, d.nombre, d.apellido
+            SELECT n.*, d.nombre as d_nom, d.apellido as d_ape, c.nombre_del_curso, doc.nombres as doc_nom, doc.apellidos as doc_ape
             FROM $tabla_notas n
             LEFT JOIN $tabla_datos d ON n.jules_dato_id = d.id
+            LEFT JOIN {$wpdb->prefix}jules_cursos c ON n.id_curso = c.id_curso
+            LEFT JOIN {$wpdb->prefix}jules_docentes doc ON n.id_doce = doc.id_doce
             ORDER BY n.id DESC";
         $resultados = $wpdb->get_results($query);
         ?>
@@ -182,10 +204,10 @@ function jules_pagina_notas_admin() {
                     <?php foreach ($resultados as $fila) : ?>
                         <tr>
                             <td><?php echo esc_html($fila->id); ?></td>
-                            <td><?php echo esc_html($fila->nombre . ' ' . $fila->apellido); ?></td>
-                            <td><?php echo esc_html($fila->curso); ?></td>
+                            <td><?php echo esc_html($fila->d_nom . ' ' . $fila->d_ape); ?></td>
+                            <td><?php echo esc_html($fila->nombre_del_curso); ?></td>
                             <td><?php echo nl2br(esc_html($fila->nota)); ?></td>
-                            <td><?php echo esc_html($fila->docente_nombre); ?></td>
+                            <td><?php echo esc_html($fila->doc_nom . ' ' . $fila->doc_ape); ?></td>
                             <td><?php echo esc_html($fila->estado); ?></td>
                             <td>
                                 <a href="admin.php?page=jules-notas&edit_id=<?php echo intval($fila->id); ?>">Editar</a> |
@@ -430,11 +452,15 @@ function jules_shortcode_notas($atts) {
     global $wpdb;
     $tabla_notas = $wpdb->prefix . 'jules_notas';
     $tabla_datos = $wpdb->prefix . 'jules_datos';
+    $tabla_cursos = $wpdb->prefix . 'jules_cursos';
+    $tabla_docentes = $wpdb->prefix . 'jules_docentes';
 
     $query = "
-        SELECT n.*, d.nombre, d.apellido
+        SELECT n.*, d.nombre as d_nom, d.apellido as d_ape, c.nombre_del_curso, doc.nombres as doc_nom, doc.apellidos as doc_ape
         FROM $tabla_notas n
         LEFT JOIN $tabla_datos d ON n.jules_dato_id = d.id
+        LEFT JOIN $tabla_cursos c ON n.id_curso = c.id_curso
+        LEFT JOIN $tabla_docentes doc ON n.id_doce = doc.id_doce
         ORDER BY n.id DESC";
     $resultados = $wpdb->get_results($query);
 
@@ -453,10 +479,10 @@ function jules_shortcode_notas($atts) {
     if ($resultados) {
         foreach ($resultados as $fila) {
             $output .= '<tr>';
-            $output .= '<td style="border: 1px solid #ccc; padding: 8px;">' . esc_html($fila->nombre . ' ' . $fila->apellido) . '</td>';
-            $output .= '<td style="border: 1px solid #ccc; padding: 8px;">' . esc_html($fila->curso) . '</td>';
+            $output .= '<td style="border: 1px solid #ccc; padding: 8px;">' . esc_html($fila->d_nom . ' ' . $fila->d_ape) . '</td>';
+            $output .= '<td style="border: 1px solid #ccc; padding: 8px;">' . esc_html($fila->nombre_del_curso) . '</td>';
             $output .= '<td style="border: 1px solid #ccc; padding: 8px;">' . nl2br(esc_html($fila->nota)) . '</td>';
-            $output .= '<td style="border: 1px solid #ccc; padding: 8px;">' . esc_html($fila->docente_nombre) . '</td>';
+            $output .= '<td style="border: 1px solid #ccc; padding: 8px;">' . esc_html($fila->doc_nom . ' ' . $fila->doc_ape) . '</td>';
             $output .= '<td style="border: 1px solid #ccc; padding: 8px;">' . esc_html($fila->estado) . '</td>';
             $output .= '</tr>';
         }
@@ -634,26 +660,26 @@ function jules_procesar_notas() {
         }
 
         $jules_dato_id = intval($_POST['jules_dato_id']);
-        $curso = sanitize_text_field($_POST['curso']);
+        $id_curso = intval($_POST['id_curso']);
+        $id_doce = intval($_POST['id_doce']);
         $nota = sanitize_textarea_field($_POST['nota']);
-        $docente_nombre = sanitize_text_field($_POST['docente_nombre']);
         $estado = sanitize_text_field($_POST['estado']);
         $item_id = isset($_POST['item_id']) ? intval($_POST['item_id']) : 0;
 
-        if ($jules_dato_id > 0 && !empty($curso) && !empty($nota)) {
+        if ($jules_dato_id > 0 && $id_curso > 0 && $id_doce > 0 && !empty($nota)) {
             if ($item_id > 0) {
                 // Actualizar nota existente
                 $resultado = $wpdb->update(
                     $tabla_notas,
                     array(
                         'jules_dato_id' => $jules_dato_id,
-                        'curso' => $curso,
+                        'id_curso' => $id_curso,
+                        'id_doce' => $id_doce,
                         'nota' => $nota,
-                        'docente_nombre' => $docente_nombre,
                         'estado' => $estado,
                     ),
                     array('id' => $item_id),
-                    array('%d', '%s', '%s', '%s', '%s'),
+                    array('%d', '%d', '%d', '%s', '%s'),
                     array('%d')
                 );
             } else {
@@ -662,12 +688,12 @@ function jules_procesar_notas() {
                     $tabla_notas,
                     array(
                         'jules_dato_id' => $jules_dato_id,
-                        'curso' => $curso,
+                        'id_curso' => $id_curso,
+                        'id_doce' => $id_doce,
                         'nota' => $nota,
-                        'docente_nombre' => $docente_nombre,
                         'estado' => $estado,
                     ),
-                    array('%d', '%s', '%s', '%s', '%s')
+                    array('%d', '%d', '%d', '%s', '%s')
                 );
             }
 
