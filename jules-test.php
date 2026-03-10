@@ -59,6 +59,25 @@ function jules_crear_tabla() {
         PRIMARY KEY  (id_curso)
     ) $charset_collate;";
     dbDelta($sql_cursos);
+
+    // Tabla de aulas
+    $tabla_aulas = $wpdb->prefix . 'jules_aulas';
+    $sql_aulas = "CREATE TABLE $tabla_aulas (
+        id_aula mediumint(9) NOT NULL AUTO_INCREMENT,
+        aula varchar(100) NOT NULL,
+        pabellon varchar(100) NOT NULL,
+        PRIMARY KEY  (id_aula)
+    ) $charset_collate;";
+    dbDelta($sql_aulas);
+
+    // Tabla de estados
+    $tabla_estados = $wpdb->prefix . 'jules_estados';
+    $sql_estados = "CREATE TABLE $tabla_estados (
+        id_estado mediumint(9) NOT NULL AUTO_INCREMENT,
+        estado varchar(100) NOT NULL,
+        PRIMARY KEY  (id_estado)
+    ) $charset_collate;";
+    dbDelta($sql_estados);
 }
 
 register_activation_hook(__FILE__, 'jules_crear_tabla');
@@ -418,6 +437,189 @@ function jules_pagina_cursos_admin() {
     <?php
 }
 
+// Página de administración para Aulas: UI (Formulario y Visualización)
+function jules_pagina_aulas_admin() {
+    global $wpdb;
+    $tabla_aulas = $wpdb->prefix . 'jules_aulas';
+
+    $edit_id = isset($_GET['edit_id']) ? intval($_GET['edit_id']) : 0;
+    $item_a_editar = null;
+
+    if ($edit_id > 0) {
+        $item_a_editar = $wpdb->get_row($wpdb->prepare("SELECT * FROM $tabla_aulas WHERE id_aula = %d", $edit_id));
+    }
+
+    // Manejo de la lógica de guardado/eliminación
+    jules_procesar_aulas();
+
+    $aula_valor = $item_a_editar ? esc_attr($item_a_editar->aula) : '';
+    $pabellon_valor = $item_a_editar ? esc_attr($item_a_editar->pabellon) : '';
+    $boton_texto = $item_a_editar ? 'Actualizar Aula' : 'Guardar Aula';
+    $titulo_pagina = $item_a_editar ? 'Editar Aula' : 'Gestionar Aulas';
+
+    ?>
+    <div class="wrap">
+        <h1>
+            Prueba de Jules - <?php echo $titulo_pagina; ?>
+            <?php if ($item_a_editar) : ?>
+                <a href="admin.php?page=jules-aulas" class="page-title-action">Añadir Nueva</a>
+            <?php endif; ?>
+        </h1>
+
+        <form method="post" action="admin.php?page=jules-aulas">
+            <?php wp_nonce_field('jules_guardar_aula', 'jules_aula_nonce'); ?>
+
+            <?php if ($item_a_editar) : ?>
+                <input type="hidden" name="item_id" value="<?php echo intval($item_a_editar->id_aula); ?>">
+            <?php endif; ?>
+
+            <table class="form-table">
+                <tr>
+                    <th scope="row"><label for="aula">Aula</label></th>
+                    <td><input name="aula" type="text" id="aula" value="<?php echo $aula_valor; ?>" class="regular-text" required></td>
+                </tr>
+                <tr>
+                    <th scope="row"><label for="pabellon">Pabellón</label></th>
+                    <td><input name="pabellon" type="text" id="pabellon" value="<?php echo $pabellon_valor; ?>" class="regular-text" required></td>
+                </tr>
+            </table>
+            <p class="submit">
+                <input type="submit" name="submit_aula" id="submit" class="button button-primary" value="<?php echo $boton_texto; ?>">
+                <?php if ($item_a_editar) : ?>
+                    <a href="admin.php?page=jules-aulas" class="button">Cancelar Edición</a>
+                <?php endif; ?>
+            </p>
+        </form>
+
+        <hr>
+
+        <h2>Aulas Registradas</h2>
+        <?php
+        $resultados = $wpdb->get_results("SELECT * FROM $tabla_aulas ORDER BY id_aula DESC");
+        ?>
+        <table class="wp-list-table widefat fixed striped">
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Aula</th>
+                    <th>Pabellón</th>
+                    <th>Acciones</th>
+                </tr>
+            </thead>
+            <tbody>
+                <?php if ($resultados) : ?>
+                    <?php foreach ($resultados as $fila) : ?>
+                        <tr>
+                            <td><?php echo esc_html($fila->id_aula); ?></td>
+                            <td><?php echo esc_html($fila->aula); ?></td>
+                            <td><?php echo esc_html($fila->pabellon); ?></td>
+                            <td>
+                                <a href="admin.php?page=jules-aulas&edit_id=<?php echo intval($fila->id_aula); ?>">Editar</a> |
+                                <a href="<?php echo wp_nonce_url('admin.php?page=jules-aulas&action=delete_aula&id=' . $fila->id_aula, 'jules_eliminar_aula_' . $fila->id_aula); ?>"
+                                   onclick="return confirm('¿Estás seguro de que deseas eliminar esta aula?');"
+                                   style="color:red;">Eliminar</a>
+                            </td>
+                        </tr>
+                    <?php endforeach; ?>
+                <?php else : ?>
+                    <tr>
+                        <td colspan="4">No hay aulas registradas aún.</td>
+                    </tr>
+                <?php endif; ?>
+            </tbody>
+        </table>
+    </div>
+    <?php
+}
+
+// Página de administración para Estados: UI (Formulario y Visualización)
+function jules_pagina_estados_admin() {
+    global $wpdb;
+    $tabla_estados = $wpdb->prefix . 'jules_estados';
+
+    $edit_id = isset($_GET['edit_id']) ? intval($_GET['edit_id']) : 0;
+    $item_a_editar = null;
+
+    if ($edit_id > 0) {
+        $item_a_editar = $wpdb->get_row($wpdb->prepare("SELECT * FROM $tabla_estados WHERE id_estado = %d", $edit_id));
+    }
+
+    // Manejo de la lógica de guardado/eliminación
+    jules_procesar_estados();
+
+    $estado_valor = $item_a_editar ? esc_attr($item_a_editar->estado) : '';
+    $boton_texto = $item_a_editar ? 'Actualizar Estado' : 'Guardar Estado';
+    $titulo_pagina = $item_a_editar ? 'Editar Estado' : 'Gestionar Estados';
+
+    ?>
+    <div class="wrap">
+        <h1>
+            Prueba de Jules - <?php echo $titulo_pagina; ?>
+            <?php if ($item_a_editar) : ?>
+                <a href="admin.php?page=jules-estados" class="page-title-action">Añadir Nuevo</a>
+            <?php endif; ?>
+        </h1>
+
+        <form method="post" action="admin.php?page=jules-estados">
+            <?php wp_nonce_field('jules_guardar_estado', 'jules_estado_nonce'); ?>
+
+            <?php if ($item_a_editar) : ?>
+                <input type="hidden" name="item_id" value="<?php echo intval($item_a_editar->id_estado); ?>">
+            <?php endif; ?>
+
+            <table class="form-table">
+                <tr>
+                    <th scope="row"><label for="estado">Estado</label></th>
+                    <td><input name="estado" type="text" id="estado" value="<?php echo $estado_valor; ?>" class="regular-text" required></td>
+                </tr>
+            </table>
+            <p class="submit">
+                <input type="submit" name="submit_estado" id="submit" class="button button-primary" value="<?php echo $boton_texto; ?>">
+                <?php if ($item_a_editar) : ?>
+                    <a href="admin.php?page=jules-estados" class="button">Cancelar Edición</a>
+                <?php endif; ?>
+            </p>
+        </form>
+
+        <hr>
+
+        <h2>Estados Registrados</h2>
+        <?php
+        $resultados = $wpdb->get_results("SELECT * FROM $tabla_estados ORDER BY id_estado DESC");
+        ?>
+        <table class="wp-list-table widefat fixed striped">
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Estado</th>
+                    <th>Acciones</th>
+                </tr>
+            </thead>
+            <tbody>
+                <?php if ($resultados) : ?>
+                    <?php foreach ($resultados as $fila) : ?>
+                        <tr>
+                            <td><?php echo esc_html($fila->id_estado); ?></td>
+                            <td><?php echo esc_html($fila->estado); ?></td>
+                            <td>
+                                <a href="admin.php?page=jules-estados&edit_id=<?php echo intval($fila->id_estado); ?>">Editar</a> |
+                                <a href="<?php echo wp_nonce_url('admin.php?page=jules-estados&action=delete_estado&id=' . $fila->id_estado, 'jules_eliminar_estado_' . $fila->id_estado); ?>"
+                                   onclick="return confirm('¿Estás seguro de que deseas eliminar este estado?');"
+                                   style="color:red;">Eliminar</a>
+                            </td>
+                        </tr>
+                    <?php endforeach; ?>
+                <?php else : ?>
+                    <tr>
+                        <td colspan="3">No hay estados registrados aún.</td>
+                    </tr>
+                <?php endif; ?>
+            </tbody>
+        </table>
+    </div>
+    <?php
+}
+
 // Función para el shortcode [jules_datos]
 function jules_shortcode_datos($atts) {
     global $wpdb;
@@ -496,6 +698,135 @@ function jules_shortcode_notas($atts) {
 }
 add_shortcode('jules_notas', 'jules_shortcode_notas');
 add_action('admin_notices', 'jules_mostrar_aviso_admin');
+
+// Función para procesar la subida, actualización o eliminación de AULAS
+function jules_procesar_aulas() {
+    global $wpdb;
+    $tabla_aulas = $wpdb->prefix . 'jules_aulas';
+
+    // Manejar Eliminación de Aulas
+    if (isset($_GET['action']) && $_GET['action'] === 'delete_aula' && isset($_GET['id'])) {
+        $id_a_eliminar = intval($_GET['id']);
+
+        // Verificar nonce de eliminación
+        if (!isset($_GET['_wpnonce']) || !wp_verify_nonce($_GET['_wpnonce'], 'jules_eliminar_aula_' . $id_a_eliminar)) {
+            wp_die('Error de seguridad. No se puede procesar la eliminación.');
+        }
+
+        $resultado = $wpdb->delete($tabla_aulas, array('id_aula' => $id_a_eliminar), array('%d'));
+
+        if ($resultado) {
+            echo '<div class="updated"><p>Aula eliminada correctamente.</p></div>';
+        } else {
+            echo '<div class="error"><p>Hubo un error al eliminar el aula.</p></div>';
+        }
+    }
+
+    // Manejar Guardado/Actualización de Aulas
+    if (isset($_POST['submit_aula'])) {
+        // Verificar nonce por seguridad
+        if (!isset($_POST['jules_aula_nonce']) || !wp_verify_nonce($_POST['jules_aula_nonce'], 'jules_guardar_aula')) {
+            wp_die('Error de seguridad. No se puede procesar la solicitud.');
+        }
+
+        $aula = sanitize_text_field($_POST['aula']);
+        $pabellon = sanitize_text_field($_POST['pabellon']);
+        $item_id = isset($_POST['item_id']) ? intval($_POST['item_id']) : 0;
+
+        if (!empty($aula) && !empty($pabellon)) {
+            if ($item_id > 0) {
+                // Actualizar aula existente
+                $resultado = $wpdb->update(
+                    $tabla_aulas,
+                    array(
+                        'aula' => $aula,
+                        'pabellon' => $pabellon,
+                    ),
+                    array('id_aula' => $item_id),
+                    array('%s', '%s'),
+                    array('%d')
+                );
+            } else {
+                // Insertar nueva aula
+                $resultado = $wpdb->insert(
+                    $tabla_aulas,
+                    array(
+                        'aula' => $aula,
+                        'pabellon' => $pabellon,
+                    ),
+                    array('%s', '%s')
+                );
+            }
+
+            if ($resultado !== false) {
+                echo '<div class="updated"><p>Aula guardada correctamente.</p></div>';
+            } else {
+                echo '<div class="error"><p>Hubo un error al guardar el aula.</p></div>';
+            }
+        }
+    }
+}
+
+// Función para procesar la subida, actualización o eliminación de ESTADOS
+function jules_procesar_estados() {
+    global $wpdb;
+    $tabla_estados = $wpdb->prefix . 'jules_estados';
+
+    // Manejar Eliminación de Estados
+    if (isset($_GET['action']) && $_GET['action'] === 'delete_estado' && isset($_GET['id'])) {
+        $id_a_eliminar = intval($_GET['id']);
+
+        // Verificar nonce de eliminación
+        if (!isset($_GET['_wpnonce']) || !wp_verify_nonce($_GET['_wpnonce'], 'jules_eliminar_estado_' . $id_a_eliminar)) {
+            wp_die('Error de seguridad. No se puede procesar la eliminación.');
+        }
+
+        $resultado = $wpdb->delete($tabla_estados, array('id_estado' => $id_a_eliminar), array('%d'));
+
+        if ($resultado) {
+            echo '<div class="updated"><p>Estado eliminado correctamente.</p></div>';
+        } else {
+            echo '<div class="error"><p>Hubo un error al eliminar el estado.</p></div>';
+        }
+    }
+
+    // Manejar Guardado/Actualización de Estados
+    if (isset($_POST['submit_estado'])) {
+        // Verificar nonce por seguridad
+        if (!isset($_POST['jules_estado_nonce']) || !wp_verify_nonce($_POST['jules_estado_nonce'], 'jules_guardar_estado')) {
+            wp_die('Error de seguridad. No se puede procesar la solicitud.');
+        }
+
+        $estado = sanitize_text_field($_POST['estado']);
+        $item_id = isset($_POST['item_id']) ? intval($_POST['item_id']) : 0;
+
+        if (!empty($estado)) {
+            if ($item_id > 0) {
+                // Actualizar estado existente
+                $resultado = $wpdb->update(
+                    $tabla_estados,
+                    array('estado' => $estado),
+                    array('id_estado' => $item_id),
+                    array('%s'),
+                    array('%d')
+                );
+            } else {
+                // Insertar nuevo estado
+                $resultado = $wpdb->insert(
+                    $tabla_estados,
+                    array('estado' => $estado),
+                    array('%s')
+                );
+            }
+
+            if ($resultado !== false) {
+                echo '<div class="updated"><p>Estado guardado correctamente.</p></div>';
+            } else {
+                echo '<div class="error"><p>Hubo un error al guardar el estado.</p></div>';
+            }
+        }
+    }
+}
 
 // Función para procesar la subida, actualización o eliminación de CURSOS
 function jules_procesar_cursos() {
@@ -746,6 +1077,26 @@ function jules_menu_admin() {
         'manage_options',
         'jules-cursos',
         'jules_pagina_cursos_admin'
+    );
+
+    // Submenú para Aulas
+    add_submenu_page(
+        'jules-prueba',
+        'Gestionar Aulas',
+        'Gestionar Aulas',
+        'manage_options',
+        'jules-aulas',
+        'jules_pagina_aulas_admin'
+    );
+
+    // Submenú para Estados
+    add_submenu_page(
+        'jules-prueba',
+        'Gestionar Estados',
+        'Gestionar Estados',
+        'manage_options',
+        'jules-estados',
+        'jules_pagina_estados_admin'
     );
 }
 add_action('admin_menu', 'jules_menu_admin');
