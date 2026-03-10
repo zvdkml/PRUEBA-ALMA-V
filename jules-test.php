@@ -39,6 +39,26 @@ function jules_crear_tabla() {
         PRIMARY KEY  (id)
     ) $charset_collate;";
     dbDelta($sql_notas);
+
+    // Tabla de docentes
+    $tabla_docentes = $wpdb->prefix . 'jules_docentes';
+    $sql_docentes = "CREATE TABLE $tabla_docentes (
+        id_doce mediumint(9) NOT NULL AUTO_INCREMENT,
+        nombres varchar(100) NOT NULL,
+        apellidos varchar(100) NOT NULL,
+        cursos text NOT NULL,
+        PRIMARY KEY  (id_doce)
+    ) $charset_collate;";
+    dbDelta($sql_docentes);
+
+    // Tabla de cursos
+    $tabla_cursos = $wpdb->prefix . 'jules_cursos';
+    $sql_cursos = "CREATE TABLE $tabla_cursos (
+        id_curso mediumint(9) NOT NULL AUTO_INCREMENT,
+        nombre_del_curso varchar(100) NOT NULL,
+        PRIMARY KEY  (id_curso)
+    ) $charset_collate;";
+    dbDelta($sql_cursos);
 }
 
 register_activation_hook(__FILE__, 'jules_crear_tabla');
@@ -186,6 +206,196 @@ function jules_pagina_notas_admin() {
     <?php
 }
 
+// Página de administración para Docentes: UI (Formulario y Visualización)
+function jules_pagina_docentes_admin() {
+    global $wpdb;
+    $tabla_docentes = $wpdb->prefix . 'jules_docentes';
+
+    $edit_id = isset($_GET['edit_id']) ? intval($_GET['edit_id']) : 0;
+    $item_a_editar = null;
+
+    if ($edit_id > 0) {
+        $item_a_editar = $wpdb->get_row($wpdb->prepare("SELECT * FROM $tabla_docentes WHERE id_doce = %d", $edit_id));
+    }
+
+    // Manejo de la lógica de guardado/eliminación
+    jules_procesar_docentes();
+
+    $nombres_valor = $item_a_editar ? esc_attr($item_a_editar->nombres) : '';
+    $apellidos_valor = $item_a_editar ? esc_attr($item_a_editar->apellidos) : '';
+    $cursos_valor = $item_a_editar ? esc_attr($item_a_editar->cursos) : '';
+    $boton_texto = $item_a_editar ? 'Actualizar Docente' : 'Guardar Docente';
+    $titulo_pagina = $item_a_editar ? 'Editar Docente' : 'Gestionar Docentes';
+
+    ?>
+    <div class="wrap">
+        <h1>
+            Prueba de Jules - <?php echo $titulo_pagina; ?>
+            <?php if ($item_a_editar) : ?>
+                <a href="admin.php?page=jules-docentes" class="page-title-action">Añadir Nuevo</a>
+            <?php endif; ?>
+        </h1>
+
+        <form method="post" action="admin.php?page=jules-docentes">
+            <?php wp_nonce_field('jules_guardar_docente', 'jules_docente_nonce'); ?>
+
+            <?php if ($item_a_editar) : ?>
+                <input type="hidden" name="item_id" value="<?php echo intval($item_a_editar->id_doce); ?>">
+            <?php endif; ?>
+
+            <table class="form-table">
+                <tr>
+                    <th scope="row"><label for="nombres">Nombres</label></th>
+                    <td><input name="nombres" type="text" id="nombres" value="<?php echo $nombres_valor; ?>" class="regular-text" required></td>
+                </tr>
+                <tr>
+                    <th scope="row"><label for="apellidos">Apellidos</label></th>
+                    <td><input name="apellidos" type="text" id="apellidos" value="<?php echo $apellidos_valor; ?>" class="regular-text" required></td>
+                </tr>
+                <tr>
+                    <th scope="row"><label for="cursos">Cursos (Separados por coma)</label></th>
+                    <td><input name="cursos" type="text" id="cursos" value="<?php echo $cursos_valor; ?>" class="regular-text" required></td>
+                </tr>
+            </table>
+            <p class="submit">
+                <input type="submit" name="submit_doce" id="submit" class="button button-primary" value="<?php echo $boton_texto; ?>">
+                <?php if ($item_a_editar) : ?>
+                    <a href="admin.php?page=jules-docentes" class="button">Cancelar Edición</a>
+                <?php endif; ?>
+            </p>
+        </form>
+
+        <hr>
+
+        <h2>Docentes Registrados</h2>
+        <?php
+        $resultados = $wpdb->get_results("SELECT * FROM $tabla_docentes ORDER BY id_doce DESC");
+        ?>
+        <table class="wp-list-table widefat fixed striped">
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Nombres</th>
+                    <th>Apellidos</th>
+                    <th>Cursos</th>
+                    <th>Acciones</th>
+                </tr>
+            </thead>
+            <tbody>
+                <?php if ($resultados) : ?>
+                    <?php foreach ($resultados as $fila) : ?>
+                        <tr>
+                            <td><?php echo esc_html($fila->id_doce); ?></td>
+                            <td><?php echo esc_html($fila->nombres); ?></td>
+                            <td><?php echo esc_html($fila->apellidos); ?></td>
+                            <td><?php echo esc_html($fila->cursos); ?></td>
+                            <td>
+                                <a href="admin.php?page=jules-docentes&edit_id=<?php echo intval($fila->id_doce); ?>">Editar</a> |
+                                <a href="<?php echo wp_nonce_url('admin.php?page=jules-docentes&action=delete_doce&id=' . $fila->id_doce, 'jules_eliminar_doce_' . $fila->id_doce); ?>"
+                                   onclick="return confirm('¿Estás seguro de que deseas eliminar este docente?');"
+                                   style="color:red;">Eliminar</a>
+                            </td>
+                        </tr>
+                    <?php endforeach; ?>
+                <?php else : ?>
+                    <tr>
+                        <td colspan="5">No hay docentes registrados aún.</td>
+                    </tr>
+                <?php endif; ?>
+            </tbody>
+        </table>
+    </div>
+    <?php
+}
+
+// Página de administración para Cursos: UI (Formulario y Visualización)
+function jules_pagina_cursos_admin() {
+    global $wpdb;
+    $tabla_cursos = $wpdb->prefix . 'jules_cursos';
+
+    $edit_id = isset($_GET['edit_id']) ? intval($_GET['edit_id']) : 0;
+    $item_a_editar = null;
+
+    if ($edit_id > 0) {
+        $item_a_editar = $wpdb->get_row($wpdb->prepare("SELECT * FROM $tabla_cursos WHERE id_curso = %d", $edit_id));
+    }
+
+    // Manejo de la lógica de guardado/eliminación
+    jules_procesar_cursos();
+
+    $nombre_curso_valor = $item_a_editar ? esc_attr($item_a_editar->nombre_del_curso) : '';
+    $boton_texto = $item_a_editar ? 'Actualizar Curso' : 'Guardar Curso';
+    $titulo_pagina = $item_a_editar ? 'Editar Curso' : 'Gestionar Cursos';
+
+    ?>
+    <div class="wrap">
+        <h1>
+            Prueba de Jules - <?php echo $titulo_pagina; ?>
+            <?php if ($item_a_editar) : ?>
+                <a href="admin.php?page=jules-cursos" class="page-title-action">Añadir Nuevo</a>
+            <?php endif; ?>
+        </h1>
+
+        <form method="post" action="admin.php?page=jules-cursos">
+            <?php wp_nonce_field('jules_guardar_curso', 'jules_curso_nonce'); ?>
+
+            <?php if ($item_a_editar) : ?>
+                <input type="hidden" name="item_id" value="<?php echo intval($item_a_editar->id_curso); ?>">
+            <?php endif; ?>
+
+            <table class="form-table">
+                <tr>
+                    <th scope="row"><label for="nombre_del_curso">Nombre del Curso</label></th>
+                    <td><input name="nombre_del_curso" type="text" id="nombre_del_curso" value="<?php echo $nombre_curso_valor; ?>" class="regular-text" required></td>
+                </tr>
+            </table>
+            <p class="submit">
+                <input type="submit" name="submit_curso" id="submit" class="button button-primary" value="<?php echo $boton_texto; ?>">
+                <?php if ($item_a_editar) : ?>
+                    <a href="admin.php?page=jules-cursos" class="button">Cancelar Edición</a>
+                <?php endif; ?>
+            </p>
+        </form>
+
+        <hr>
+
+        <h2>Cursos Registrados</h2>
+        <?php
+        $resultados = $wpdb->get_results("SELECT * FROM $tabla_cursos ORDER BY id_curso DESC");
+        ?>
+        <table class="wp-list-table widefat fixed striped">
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Nombre del Curso</th>
+                    <th>Acciones</th>
+                </tr>
+            </thead>
+            <tbody>
+                <?php if ($resultados) : ?>
+                    <?php foreach ($resultados as $fila) : ?>
+                        <tr>
+                            <td><?php echo esc_html($fila->id_curso); ?></td>
+                            <td><?php echo esc_html($fila->nombre_del_curso); ?></td>
+                            <td>
+                                <a href="admin.php?page=jules-cursos&edit_id=<?php echo intval($fila->id_curso); ?>">Editar</a> |
+                                <a href="<?php echo wp_nonce_url('admin.php?page=jules-cursos&action=delete_curso&id=' . $fila->id_curso, 'jules_eliminar_curso_' . $fila->id_curso); ?>"
+                                   onclick="return confirm('¿Estás seguro de que deseas eliminar este curso?');"
+                                   style="color:red;">Eliminar</a>
+                            </td>
+                        </tr>
+                    <?php endforeach; ?>
+                <?php else : ?>
+                    <tr>
+                        <td colspan="3">No hay cursos registrados aún.</td>
+                    </tr>
+                <?php endif; ?>
+            </tbody>
+        </table>
+    </div>
+    <?php
+}
+
 // Función para el shortcode [jules_datos]
 function jules_shortcode_datos($atts) {
     global $wpdb;
@@ -260,6 +470,138 @@ function jules_shortcode_notas($atts) {
 }
 add_shortcode('jules_notas', 'jules_shortcode_notas');
 add_action('admin_notices', 'jules_mostrar_aviso_admin');
+
+// Función para procesar la subida, actualización o eliminación de CURSOS
+function jules_procesar_cursos() {
+    global $wpdb;
+    $tabla_cursos = $wpdb->prefix . 'jules_cursos';
+
+    // Manejar Eliminación de Cursos
+    if (isset($_GET['action']) && $_GET['action'] === 'delete_curso' && isset($_GET['id'])) {
+        $id_a_eliminar = intval($_GET['id']);
+
+        // Verificar nonce de eliminación
+        if (!isset($_GET['_wpnonce']) || !wp_verify_nonce($_GET['_wpnonce'], 'jules_eliminar_curso_' . $id_a_eliminar)) {
+            wp_die('Error de seguridad. No se puede procesar la eliminación.');
+        }
+
+        $resultado = $wpdb->delete($tabla_cursos, array('id_curso' => $id_a_eliminar), array('%d'));
+
+        if ($resultado) {
+            echo '<div class="updated"><p>Curso eliminado correctamente.</p></div>';
+        } else {
+            echo '<div class="error"><p>Hubo un error al eliminar el curso.</p></div>';
+        }
+    }
+
+    // Manejar Guardado/Actualización de Cursos
+    if (isset($_POST['submit_curso'])) {
+        // Verificar nonce por seguridad
+        if (!isset($_POST['jules_curso_nonce']) || !wp_verify_nonce($_POST['jules_curso_nonce'], 'jules_guardar_curso')) {
+            wp_die('Error de seguridad. No se puede procesar la solicitud.');
+        }
+
+        $nombre_del_curso = sanitize_text_field($_POST['nombre_del_curso']);
+        $item_id = isset($_POST['item_id']) ? intval($_POST['item_id']) : 0;
+
+        if (!empty($nombre_del_curso)) {
+            if ($item_id > 0) {
+                // Actualizar curso existente
+                $resultado = $wpdb->update(
+                    $tabla_cursos,
+                    array('nombre_del_curso' => $nombre_del_curso),
+                    array('id_curso' => $item_id),
+                    array('%s'),
+                    array('%d')
+                );
+            } else {
+                // Insertar nuevo curso
+                $resultado = $wpdb->insert(
+                    $tabla_cursos,
+                    array('nombre_del_curso' => $nombre_del_curso),
+                    array('%s')
+                );
+            }
+
+            if ($resultado !== false) {
+                echo '<div class="updated"><p>Curso guardado correctamente.</p></div>';
+            } else {
+                echo '<div class="error"><p>Hubo un error al guardar el curso.</p></div>';
+            }
+        }
+    }
+}
+
+// Función para procesar la subida, actualización o eliminación de DOCENTES
+function jules_procesar_docentes() {
+    global $wpdb;
+    $tabla_docentes = $wpdb->prefix . 'jules_docentes';
+
+    // Manejar Eliminación de Docentes
+    if (isset($_GET['action']) && $_GET['action'] === 'delete_doce' && isset($_GET['id'])) {
+        $id_a_eliminar = intval($_GET['id']);
+
+        // Verificar nonce de eliminación
+        if (!isset($_GET['_wpnonce']) || !wp_verify_nonce($_GET['_wpnonce'], 'jules_eliminar_doce_' . $id_a_eliminar)) {
+            wp_die('Error de seguridad. No se puede procesar la eliminación.');
+        }
+
+        $resultado = $wpdb->delete($tabla_docentes, array('id_doce' => $id_a_eliminar), array('%d'));
+
+        if ($resultado) {
+            echo '<div class="updated"><p>Docente eliminado correctamente.</p></div>';
+        } else {
+            echo '<div class="error"><p>Hubo un error al eliminar al docente.</p></div>';
+        }
+    }
+
+    // Manejar Guardado/Actualización de Docentes
+    if (isset($_POST['submit_doce'])) {
+        // Verificar nonce por seguridad
+        if (!isset($_POST['jules_docente_nonce']) || !wp_verify_nonce($_POST['jules_docente_nonce'], 'jules_guardar_docente')) {
+            wp_die('Error de seguridad. No se puede procesar la solicitud.');
+        }
+
+        $nombres = sanitize_text_field($_POST['nombres']);
+        $apellidos = sanitize_text_field($_POST['apellidos']);
+        $cursos = sanitize_text_field($_POST['cursos']);
+        $item_id = isset($_POST['item_id']) ? intval($_POST['item_id']) : 0;
+
+        if (!empty($nombres) && !empty($apellidos)) {
+            if ($item_id > 0) {
+                // Actualizar docente existente
+                $resultado = $wpdb->update(
+                    $tabla_docentes,
+                    array(
+                        'nombres' => $nombres,
+                        'apellidos' => $apellidos,
+                        'cursos' => $cursos,
+                    ),
+                    array('id_doce' => $item_id),
+                    array('%s', '%s', '%s'),
+                    array('%d')
+                );
+            } else {
+                // Insertar nuevo docente
+                $resultado = $wpdb->insert(
+                    $tabla_docentes,
+                    array(
+                        'nombres' => $nombres,
+                        'apellidos' => $apellidos,
+                        'cursos' => $cursos,
+                    ),
+                    array('%s', '%s', '%s')
+                );
+            }
+
+            if ($resultado !== false) {
+                echo '<div class="updated"><p>Docente guardado correctamente.</p></div>';
+            } else {
+                echo '<div class="error"><p>Hubo un error al guardar al docente.</p></div>';
+            }
+        }
+    }
+}
 
 // Función para procesar la subida, actualización o eliminación de NOTAS
 function jules_procesar_notas() {
@@ -358,6 +700,26 @@ function jules_menu_admin() {
         'manage_options',
         'jules-notas',
         'jules_pagina_notas_admin'
+    );
+
+    // Submenú para Docentes
+    add_submenu_page(
+        'jules-prueba',
+        'Gestionar Docentes',
+        'Gestionar Docentes',
+        'manage_options',
+        'jules-docentes',
+        'jules_pagina_docentes_admin'
+    );
+
+    // Submenú para Cursos
+    add_submenu_page(
+        'jules-prueba',
+        'Gestionar Cursos',
+        'Gestionar Cursos',
+        'manage_options',
+        'jules-cursos',
+        'jules_pagina_cursos_admin'
     );
 }
 add_action('admin_menu', 'jules_menu_admin');
