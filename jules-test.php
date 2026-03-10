@@ -65,10 +65,19 @@ function jules_crear_tabla() {
     $sql_aulas = "CREATE TABLE $tabla_aulas (
         id_aula mediumint(9) NOT NULL AUTO_INCREMENT,
         aula varchar(100) NOT NULL,
-        pabellon varchar(100) NOT NULL,
+        id_pabe mediumint(9) NOT NULL,
         PRIMARY KEY  (id_aula)
     ) $charset_collate;";
     dbDelta($sql_aulas);
+
+    // Tabla de pabellones
+    $tabla_pabellones = $wpdb->prefix . 'jules_pabellones';
+    $sql_pabellones = "CREATE TABLE $tabla_pabellones (
+        id_pabe mediumint(9) NOT NULL AUTO_INCREMENT,
+        pabellon varchar(100) NOT NULL,
+        PRIMARY KEY  (id_pabe)
+    ) $charset_collate;";
+    dbDelta($sql_pabellones);
 
     // Tabla de estados
     $tabla_estados = $wpdb->prefix . 'jules_estados';
@@ -464,9 +473,12 @@ function jules_pagina_aulas_admin() {
     jules_procesar_aulas();
 
     $aula_valor = $item_a_editar ? esc_attr($item_a_editar->aula) : '';
-    $pabellon_valor = $item_a_editar ? esc_attr($item_a_editar->pabellon) : '';
+    $pabe_id_valor = $item_a_editar ? $item_a_editar->id_pabe : 0;
     $boton_texto = $item_a_editar ? 'Actualizar Aula' : 'Guardar Aula';
     $titulo_pagina = $item_a_editar ? 'Editar Aula' : 'Gestionar Aulas';
+
+    // Obtener lista de pabellones
+    $pabellones = $wpdb->get_results("SELECT id_pabe, pabellon FROM {$wpdb->prefix}jules_pabellones ORDER BY pabellon ASC");
 
     ?>
     <div class="wrap">
@@ -490,8 +502,17 @@ function jules_pagina_aulas_admin() {
                     <td><input name="aula" type="text" id="aula" value="<?php echo $aula_valor; ?>" class="regular-text" required></td>
                 </tr>
                 <tr>
-                    <th scope="row"><label for="pabellon">Pabellón</label></th>
-                    <td><input name="pabellon" type="text" id="pabellon" value="<?php echo $pabellon_valor; ?>" class="regular-text" required></td>
+                    <th scope="row"><label for="id_pabe">Pabellón</label></th>
+                    <td>
+                        <select name="id_pabe" id="id_pabe" required>
+                            <option value="">Seleccione un pabellón...</option>
+                            <?php foreach ($pabellones as $pabe) : ?>
+                                <option value="<?php echo intval($pabe->id_pabe); ?>" <?php selected($pabe_id_valor, $pabe->id_pabe); ?>>
+                                    <?php echo esc_html($pabe->pabellon); ?>
+                                </option>
+                            <?php endforeach; ?>
+                        </select>
+                    </td>
                 </tr>
             </table>
             <p class="submit">
@@ -506,7 +527,12 @@ function jules_pagina_aulas_admin() {
 
         <h2>Aulas Registradas</h2>
         <?php
-        $resultados = $wpdb->get_results("SELECT * FROM $tabla_aulas ORDER BY id_aula DESC");
+        $query = "
+            SELECT a.*, p.pabellon as pabe_nom
+            FROM $tabla_aulas a
+            LEFT JOIN {$wpdb->prefix}jules_pabellones p ON a.id_pabe = p.id_pabe
+            ORDER BY a.id_aula DESC";
+        $resultados = $wpdb->get_results($query);
         ?>
         <table class="wp-list-table widefat fixed striped">
             <thead>
@@ -523,7 +549,7 @@ function jules_pagina_aulas_admin() {
                         <tr>
                             <td><?php echo esc_html($fila->id_aula); ?></td>
                             <td><?php echo esc_html($fila->aula); ?></td>
-                            <td><?php echo esc_html($fila->pabellon); ?></td>
+                            <td><?php echo esc_html($fila->pabe_nom); ?></td>
                             <td>
                                 <a href="admin.php?page=jules-aulas&edit_id=<?php echo intval($fila->id_aula); ?>">Editar</a> |
                                 <a href="<?php echo wp_nonce_url('admin.php?page=jules-aulas&action=delete_aula&id=' . $fila->id_aula, 'jules_eliminar_aula_' . $fila->id_aula); ?>"
@@ -623,6 +649,94 @@ function jules_pagina_estados_admin() {
                 <?php else : ?>
                     <tr>
                         <td colspan="3">No hay estados registrados aún.</td>
+                    </tr>
+                <?php endif; ?>
+            </tbody>
+        </table>
+    </div>
+    <?php
+}
+
+// Página de administración para Pabellones: UI (Formulario y Visualización)
+function jules_pagina_pabellones_admin() {
+    global $wpdb;
+    $tabla_pabellones = $wpdb->prefix . 'jules_pabellones';
+
+    $edit_id = isset($_GET['edit_id']) ? intval($_GET['edit_id']) : 0;
+    $item_a_editar = null;
+
+    if ($edit_id > 0) {
+        $item_a_editar = $wpdb->get_row($wpdb->prepare("SELECT * FROM $tabla_pabellones WHERE id_pabe = %d", $edit_id));
+    }
+
+    // Manejo de la lógica de guardado/eliminación
+    jules_procesar_pabellones();
+
+    $pabellon_valor = $item_a_editar ? esc_attr($item_a_editar->pabellon) : '';
+    $boton_texto = $item_a_editar ? 'Actualizar Pabellón' : 'Guardar Pabellón';
+    $titulo_pagina = $item_a_editar ? 'Editar Pabellón' : 'Gestionar Pabellones';
+
+    ?>
+    <div class="wrap">
+        <h1>
+            Prueba de Jules - <?php echo $titulo_pagina; ?>
+            <?php if ($item_a_editar) : ?>
+                <a href="admin.php?page=jules-pabellones" class="page-title-action">Añadir Nuevo</a>
+            <?php endif; ?>
+        </h1>
+
+        <form method="post" action="admin.php?page=jules-pabellones">
+            <?php wp_nonce_field('jules_guardar_pabellon', 'jules_pabellon_nonce'); ?>
+
+            <?php if ($item_a_editar) : ?>
+                <input type="hidden" name="item_id" value="<?php echo intval($item_a_editar->id_pabe); ?>">
+            <?php endif; ?>
+
+            <table class="form-table">
+                <tr>
+                    <th scope="row"><label for="pabellon">Pabellón</label></th>
+                    <td><input name="pabellon" type="text" id="pabellon" value="<?php echo $pabellon_valor; ?>" class="regular-text" required></td>
+                </tr>
+            </table>
+            <p class="submit">
+                <input type="submit" name="submit_pabellon" id="submit" class="button button-primary" value="<?php echo $boton_texto; ?>">
+                <?php if ($item_a_editar) : ?>
+                    <a href="admin.php?page=jules-pabellones" class="button">Cancelar Edición</a>
+                <?php endif; ?>
+            </p>
+        </form>
+
+        <hr>
+
+        <h2>Pabellones Registrados</h2>
+        <?php
+        $resultados = $wpdb->get_results("SELECT * FROM $tabla_pabellones ORDER BY id_pabe DESC");
+        ?>
+        <table class="wp-list-table widefat fixed striped">
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Pabellón</th>
+                    <th>Acciones</th>
+                </tr>
+            </thead>
+            <tbody>
+                <?php if ($resultados) : ?>
+                    <?php foreach ($resultados as $fila) : ?>
+                        <tr>
+                            <td><?php echo esc_html($fila->id_pabe); ?></td>
+                            <td><?php echo esc_html($fila->pabellon); ?></td>
+                            <td>
+                                <a href="admin.php?page=jules-pabellones&edit_id=<?php echo intval($fila->id_pabe); ?>">Editar</a> |
+                                <a href="<?php echo wp_nonce_url('admin.php?page=jules-pabellones&action=delete_pabe&id=' . $fila->id_pabe, 'jules_eliminar_pabellon_' . $fila->id_pabe); ?>"
+                                   onclick="return confirm('¿Estás seguro de que deseas eliminar este pabellón?');"
+                                   style="color:red;">Eliminar</a>
+                            </td>
+                        </tr>
+                    <?php endforeach; ?>
+                <?php else : ?>
+                    <tr>
+                        <td colspan="3">No hay pabellones registrados aún.</td>
                     </tr>
                 <?php endif; ?>
             </tbody>
@@ -743,20 +857,20 @@ function jules_procesar_aulas() {
         }
 
         $aula = sanitize_text_field($_POST['aula']);
-        $pabellon = sanitize_text_field($_POST['pabellon']);
+        $id_pabe = intval($_POST['id_pabe']);
         $item_id = isset($_POST['item_id']) ? intval($_POST['item_id']) : 0;
 
-        if (!empty($aula) && !empty($pabellon)) {
+        if (!empty($aula) && $id_pabe > 0) {
             if ($item_id > 0) {
                 // Actualizar aula existente
                 $resultado = $wpdb->update(
                     $tabla_aulas,
                     array(
                         'aula' => $aula,
-                        'pabellon' => $pabellon,
+                        'id_pabe' => $id_pabe,
                     ),
                     array('id_aula' => $item_id),
-                    array('%s', '%s'),
+                    array('%s', '%d'),
                     array('%d')
                 );
             } else {
@@ -765,9 +879,9 @@ function jules_procesar_aulas() {
                     $tabla_aulas,
                     array(
                         'aula' => $aula,
-                        'pabellon' => $pabellon,
+                        'id_pabe' => $id_pabe,
                     ),
-                    array('%s', '%s')
+                    array('%s', '%d')
                 );
             }
 
@@ -775,6 +889,67 @@ function jules_procesar_aulas() {
                 echo '<div class="updated"><p>Aula guardada correctamente.</p></div>';
             } else {
                 echo '<div class="error"><p>Hubo un error al guardar el aula.</p></div>';
+            }
+        }
+    }
+}
+
+// Función para procesar la subida, actualización o eliminación de PABELLONES
+function jules_procesar_pabellones() {
+    global $wpdb;
+    $tabla_pabellones = $wpdb->prefix . 'jules_pabellones';
+
+    // Manejar Eliminación de Pabellones
+    if (isset($_GET['action']) && $_GET['action'] === 'delete_pabe' && isset($_GET['id'])) {
+        $id_a_eliminar = intval($_GET['id']);
+
+        // Verificar nonce de eliminación
+        if (!isset($_GET['_wpnonce']) || !wp_verify_nonce($_GET['_wpnonce'], 'jules_eliminar_pabellon_' . $id_a_eliminar)) {
+            wp_die('Error de seguridad. No se puede procesar la eliminación.');
+        }
+
+        $resultado = $wpdb->delete($tabla_pabellones, array('id_pabe' => $id_a_eliminar), array('%d'));
+
+        if ($resultado) {
+            echo '<div class="updated"><p>Pabellón eliminado correctamente.</p></div>';
+        } else {
+            echo '<div class="error"><p>Hubo un error al eliminar el pabellón.</p></div>';
+        }
+    }
+
+    // Manejar Guardado/Actualización de Pabellones
+    if (isset($_POST['submit_pabellon'])) {
+        // Verificar nonce por seguridad
+        if (!isset($_POST['jules_pabellon_nonce']) || !wp_verify_nonce($_POST['jules_pabellon_nonce'], 'jules_guardar_pabellon')) {
+            wp_die('Error de seguridad. No se puede procesar la solicitud.');
+        }
+
+        $pabellon = sanitize_text_field($_POST['pabellon']);
+        $item_id = isset($_POST['item_id']) ? intval($_POST['item_id']) : 0;
+
+        if (!empty($pabellon)) {
+            if ($item_id > 0) {
+                // Actualizar pabellón existente
+                $resultado = $wpdb->update(
+                    $tabla_pabellones,
+                    array('pabellon' => $pabellon),
+                    array('id_pabe' => $item_id),
+                    array('%s'),
+                    array('%d')
+                );
+            } else {
+                // Insertar nuevo pabellón
+                $resultado = $wpdb->insert(
+                    $tabla_pabellones,
+                    array('pabellon' => $pabellon),
+                    array('%s')
+                );
+            }
+
+            if ($resultado !== false) {
+                echo '<div class="updated"><p>Pabellón guardado correctamente.</p></div>';
+            } else {
+                echo '<div class="error"><p>Hubo un error al guardar el pabellón.</p></div>';
             }
         }
     }
@@ -1110,6 +1285,16 @@ function jules_menu_admin() {
         'manage_options',
         'jules-estados',
         'jules_pagina_estados_admin'
+    );
+
+    // Submenú para Pabellones
+    add_submenu_page(
+        'jules-prueba',
+        'Gestionar Pabellones',
+        'Gestionar Pabellones',
+        'manage_options',
+        'jules-pabellones',
+        'jules_pagina_pabellones_admin'
     );
 }
 add_action('admin_menu', 'jules_menu_admin');
