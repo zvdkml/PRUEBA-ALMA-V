@@ -34,6 +34,8 @@ function jules_crear_tabla() {
         jules_dato_id mediumint(9) NOT NULL,
         curso varchar(100) NOT NULL,
         nota text NOT NULL,
+        docente_nombre varchar(100) NOT NULL,
+        estado varchar(50) NOT NULL,
         PRIMARY KEY  (id)
     ) $charset_collate;";
     dbDelta($sql_notas);
@@ -69,6 +71,8 @@ function jules_pagina_notas_admin() {
     $dato_id_valor = $item_a_editar ? $item_a_editar->jules_dato_id : 0;
     $curso_valor = $item_a_editar ? esc_attr($item_a_editar->curso) : '';
     $nota_valor = $item_a_editar ? esc_textarea($item_a_editar->nota) : '';
+    $docente_valor = $item_a_editar ? esc_attr($item_a_editar->docente_nombre) : '';
+    $estado_valor = $item_a_editar ? esc_attr($item_a_editar->estado) : '';
     $boton_texto = $item_a_editar ? 'Actualizar Nota' : 'Guardar Nota';
     $titulo_pagina = $item_a_editar ? 'Editar Nota' : 'Gestionar Notas';
 
@@ -113,6 +117,14 @@ function jules_pagina_notas_admin() {
                     <th scope="row"><label for="nota">Nota</label></th>
                     <td><textarea name="nota" id="nota" rows="5" class="large-text" required><?php echo $nota_valor; ?></textarea></td>
                 </tr>
+                <tr>
+                    <th scope="row"><label for="docente_nombre">Docente</label></th>
+                    <td><input name="docente_nombre" type="text" id="docente_nombre" value="<?php echo $docente_valor; ?>" class="regular-text" required></td>
+                </tr>
+                <tr>
+                    <th scope="row"><label for="estado">Estado</label></th>
+                    <td><input name="estado" type="text" id="estado" value="<?php echo $estado_valor; ?>" class="regular-text" required></td>
+                </tr>
             </table>
             <p class="submit">
                 <input type="submit" name="submit_nota" id="submit" class="button button-primary" value="<?php echo $boton_texto; ?>">
@@ -140,6 +152,8 @@ function jules_pagina_notas_admin() {
                     <th>Persona</th>
                     <th>Curso</th>
                     <th>Nota</th>
+                    <th>Docente</th>
+                    <th>Estado</th>
                     <th>Acciones</th>
                 </tr>
             </thead>
@@ -151,6 +165,8 @@ function jules_pagina_notas_admin() {
                             <td><?php echo esc_html($fila->nombre . ' ' . $fila->apellido); ?></td>
                             <td><?php echo esc_html($fila->curso); ?></td>
                             <td><?php echo nl2br(esc_html($fila->nota)); ?></td>
+                            <td><?php echo esc_html($fila->docente_nombre); ?></td>
+                            <td><?php echo esc_html($fila->estado); ?></td>
                             <td>
                                 <a href="admin.php?page=jules-notas&edit_id=<?php echo intval($fila->id); ?>">Editar</a> |
                                 <a href="<?php echo wp_nonce_url('admin.php?page=jules-notas&action=delete_nota&id=' . $fila->id, 'jules_eliminar_nota_' . $fila->id); ?>"
@@ -161,7 +177,7 @@ function jules_pagina_notas_admin() {
                     <?php endforeach; ?>
                 <?php else : ?>
                     <tr>
-                        <td colspan="5">No hay notas registradas aún.</td>
+                        <td colspan="7">No hay notas registradas aún.</td>
                     </tr>
                 <?php endif; ?>
             </tbody>
@@ -219,6 +235,8 @@ function jules_shortcode_notas($atts) {
     $output .= '<th style="border: 1px solid #ccc; padding: 8px;">Persona</th>';
     $output .= '<th style="border: 1px solid #ccc; padding: 8px;">Curso</th>';
     $output .= '<th style="border: 1px solid #ccc; padding: 8px;">Nota</th>';
+    $output .= '<th style="border: 1px solid #ccc; padding: 8px;">Docente</th>';
+    $output .= '<th style="border: 1px solid #ccc; padding: 8px;">Estado</th>';
     $output .= '</tr></thead>';
     $output .= '<tbody>';
 
@@ -228,10 +246,12 @@ function jules_shortcode_notas($atts) {
             $output .= '<td style="border: 1px solid #ccc; padding: 8px;">' . esc_html($fila->nombre . ' ' . $fila->apellido) . '</td>';
             $output .= '<td style="border: 1px solid #ccc; padding: 8px;">' . esc_html($fila->curso) . '</td>';
             $output .= '<td style="border: 1px solid #ccc; padding: 8px;">' . nl2br(esc_html($fila->nota)) . '</td>';
+            $output .= '<td style="border: 1px solid #ccc; padding: 8px;">' . esc_html($fila->docente_nombre) . '</td>';
+            $output .= '<td style="border: 1px solid #ccc; padding: 8px;">' . esc_html($fila->estado) . '</td>';
             $output .= '</tr>';
         }
     } else {
-        $output .= '<tr><td colspan="3" style="border: 1px solid #ccc; padding: 8px; text-align:center;">No hay notas registradas aún.</td></tr>';
+        $output .= '<tr><td colspan="5" style="border: 1px solid #ccc; padding: 8px; text-align:center;">No hay notas registradas aún.</td></tr>';
     }
 
     $output .= '</tbody></table></div>';
@@ -274,6 +294,8 @@ function jules_procesar_notas() {
         $jules_dato_id = intval($_POST['jules_dato_id']);
         $curso = sanitize_text_field($_POST['curso']);
         $nota = sanitize_textarea_field($_POST['nota']);
+        $docente_nombre = sanitize_text_field($_POST['docente_nombre']);
+        $estado = sanitize_text_field($_POST['estado']);
         $item_id = isset($_POST['item_id']) ? intval($_POST['item_id']) : 0;
 
         if ($jules_dato_id > 0 && !empty($curso) && !empty($nota)) {
@@ -285,9 +307,11 @@ function jules_procesar_notas() {
                         'jules_dato_id' => $jules_dato_id,
                         'curso' => $curso,
                         'nota' => $nota,
+                        'docente_nombre' => $docente_nombre,
+                        'estado' => $estado,
                     ),
                     array('id' => $item_id),
-                    array('%d', '%s', '%s'),
+                    array('%d', '%s', '%s', '%s', '%s'),
                     array('%d')
                 );
             } else {
@@ -298,8 +322,10 @@ function jules_procesar_notas() {
                         'jules_dato_id' => $jules_dato_id,
                         'curso' => $curso,
                         'nota' => $nota,
+                        'docente_nombre' => $docente_nombre,
+                        'estado' => $estado,
                     ),
-                    array('%d', '%s', '%s')
+                    array('%d', '%s', '%s', '%s', '%s')
                 );
             }
 
