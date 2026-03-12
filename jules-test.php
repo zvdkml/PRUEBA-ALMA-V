@@ -100,6 +100,52 @@ function jules_mostrar_aviso_admin() {
     <?php
 }
 
+// Función para agregar estilos CSS modernos a las tablas en el frontend
+function jules_agregar_estilos_css() {
+    ?>
+    <style>
+        .jules-tabla-estilizada {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 20px 0;
+            font-size: 16px;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            box-shadow: 0 0 20px rgba(0, 0, 0, 0.1);
+            border-radius: 8px;
+            overflow: hidden;
+        }
+        .jules-tabla-estilizada thead tr {
+            background-color: #009879;
+            color: #ffffff;
+            text-align: left;
+            font-weight: bold;
+        }
+        .jules-tabla-estilizada th,
+        .jules-tabla-estilizada td {
+            padding: 12px 15px;
+            border: 1px solid #dddddd;
+        }
+        .jules-tabla-estilizada tbody tr {
+            border-bottom: 1px solid #dddddd;
+        }
+        .jules-tabla-estilizada tbody tr:nth-of-type(even) {
+            background-color: #f3f3f3;
+        }
+        .jules-tabla-estilizada tbody tr:last-of-type {
+            border-bottom: 2px solid #009879;
+        }
+        .jules-tabla-estilizada tbody tr:hover {
+            background-color: #f1f1f1;
+            cursor: pointer;
+        }
+        .jules-contenedor-responsive {
+            overflow-x: auto;
+        }
+    </style>
+    <?php
+}
+add_action('wp_head', 'jules_agregar_estilos_css');
+
 // Página de administración para Notas: UI (Formulario y Visualización)
 function jules_pagina_notas_admin() {
     global $wpdb;
@@ -751,21 +797,21 @@ function jules_shortcode_datos($atts) {
     $tabla_nombre = $wpdb->prefix . 'jules_datos';
     $resultados = $wpdb->get_results("SELECT * FROM $tabla_nombre ORDER BY id DESC");
 
-    $output = '<div class="jules-datos-display">';
+    $output = '<div class="jules-datos-display jules-contenedor-responsive">';
     $output .= '<h3>Lista de Nombres y Apellidos</h3>';
-    $output .= '<table style="width:100%; border-collapse: collapse; border: 1px solid #ccc;">';
-    $output .= '<thead><tr><th style="border: 1px solid #ccc; padding: 8px;">Nombre</th><th style="border: 1px solid #ccc; padding: 8px;">Apellido</th></tr></thead>';
+    $output .= '<table class="jules-tabla-estilizada">';
+    $output .= '<thead><tr><th>Nombre</th><th>Apellido</th></tr></thead>';
     $output .= '<tbody>';
 
     if ($resultados) {
         foreach ($resultados as $fila) {
             $output .= '<tr>';
-            $output .= '<td style="border: 1px solid #ccc; padding: 8px;">' . esc_html($fila->nombre) . '</td>';
-            $output .= '<td style="border: 1px solid #ccc; padding: 8px;">' . esc_html($fila->apellido) . '</td>';
+            $output .= '<td>' . esc_html($fila->nombre) . '</td>';
+            $output .= '<td>' . esc_html($fila->apellido) . '</td>';
             $output .= '</tr>';
         }
     } else {
-        $output .= '<tr><td colspan="2" style="border: 1px solid #ccc; padding: 8px; text-align:center;">No hay datos registrados aún.</td></tr>';
+        $output .= '<tr><td colspan="2" style="text-align:center;">No hay datos registrados aún.</td></tr>';
     }
 
     $output .= '</tbody></table></div>';
@@ -793,30 +839,30 @@ function jules_shortcode_notas($atts) {
         ORDER BY n.id DESC";
     $resultados = $wpdb->get_results($query);
 
-    $output = '<div class="jules-notas-display">';
+    $output = '<div class="jules-notas-display jules-contenedor-responsive">';
     $output .= '<h3>Notas Registradas</h3>';
-    $output .= '<table style="width:100%; border-collapse: collapse; border: 1px solid #ccc;">';
+    $output .= '<table class="jules-tabla-estilizada">';
     $output .= '<thead><tr>';
-    $output .= '<th style="border: 1px solid #ccc; padding: 8px;">Persona</th>';
-    $output .= '<th style="border: 1px solid #ccc; padding: 8px;">Curso</th>';
-    $output .= '<th style="border: 1px solid #ccc; padding: 8px;">Nota</th>';
-    $output .= '<th style="border: 1px solid #ccc; padding: 8px;">Docente</th>';
-    $output .= '<th style="border: 1px solid #ccc; padding: 8px;">Estado</th>';
+    $output .= '<th>Persona</th>';
+    $output .= '<th>Curso</th>';
+    $output .= '<th>Nota</th>';
+    $output .= '<th>Docente</th>';
+    $output .= '<th>Estado</th>';
     $output .= '</tr></thead>';
     $output .= '<tbody>';
 
     if ($resultados) {
         foreach ($resultados as $fila) {
             $output .= '<tr>';
-            $output .= '<td style="border: 1px solid #ccc; padding: 8px;">' . esc_html($fila->d_nom . ' ' . $fila->d_ape) . '</td>';
-            $output .= '<td style="border: 1px solid #ccc; padding: 8px;">' . esc_html($fila->nombre_del_curso) . '</td>';
-            $output .= '<td style="border: 1px solid #ccc; padding: 8px;">' . nl2br(esc_html($fila->nota)) . '</td>';
-            $output .= '<td style="border: 1px solid #ccc; padding: 8px;">' . esc_html($fila->doc_nom . ' ' . $fila->doc_ape) . '</td>';
-            $output .= '<td style="border: 1px solid #ccc; padding: 8px;">' . esc_html($fila->estado_nom) . '</td>';
+            $output .= '<td>' . esc_html($fila->d_nom . ' ' . $fila->d_ape) . '</td>';
+            $output .= '<td>' . esc_html($fila->nombre_del_curso) . '</td>';
+            $output .= '<td>' . nl2br(esc_html($fila->nota)) . '</td>';
+            $output .= '<td>' . esc_html($fila->doc_nom . ' ' . $fila->doc_ape) . '</td>';
+            $output .= '<td>' . esc_html($fila->estado_nom) . '</td>';
             $output .= '</tr>';
         }
     } else {
-        $output .= '<tr><td colspan="5" style="border: 1px solid #ccc; padding: 8px; text-align:center;">No hay notas registradas aún.</td></tr>';
+        $output .= '<tr><td colspan="5" style="text-align:center;">No hay notas registradas aún.</td></tr>';
     }
 
     $output .= '</tbody></table></div>';
@@ -831,26 +877,26 @@ function jules_shortcode_docentes($atts) {
     $tabla_nombre = $wpdb->prefix . 'jules_docentes';
     $resultados = $wpdb->get_results("SELECT * FROM $tabla_nombre ORDER BY id_doce DESC");
 
-    $output = '<div class="jules-docentes-display">';
+    $output = '<div class="jules-docentes-display jules-contenedor-responsive">';
     $output .= '<h3>Lista de Docentes</h3>';
-    $output .= '<table style="width:100%; border-collapse: collapse; border: 1px solid #ccc;">';
+    $output .= '<table class="jules-tabla-estilizada">';
     $output .= '<thead><tr>';
-    $output .= '<th style="border: 1px solid #ccc; padding: 8px;">Nombres</th>';
-    $output .= '<th style="border: 1px solid #ccc; padding: 8px;">Apellidos</th>';
-    $output .= '<th style="border: 1px solid #ccc; padding: 8px;">Cursos</th>';
+    $output .= '<th>Nombres</th>';
+    $output .= '<th>Apellidos</th>';
+    $output .= '<th>Cursos</th>';
     $output .= '</tr></thead>';
     $output .= '<tbody>';
 
     if ($resultados) {
         foreach ($resultados as $fila) {
             $output .= '<tr>';
-            $output .= '<td style="border: 1px solid #ccc; padding: 8px;">' . esc_html($fila->nombres) . '</td>';
-            $output .= '<td style="border: 1px solid #ccc; padding: 8px;">' . esc_html($fila->apellidos) . '</td>';
-            $output .= '<td style="border: 1px solid #ccc; padding: 8px;">' . esc_html($fila->cursos) . '</td>';
+            $output .= '<td>' . esc_html($fila->nombres) . '</td>';
+            $output .= '<td>' . esc_html($fila->apellidos) . '</td>';
+            $output .= '<td>' . esc_html($fila->cursos) . '</td>';
             $output .= '</tr>';
         }
     } else {
-        $output .= '<tr><td colspan="3" style="border: 1px solid #ccc; padding: 8px; text-align:center;">No hay docentes registrados aún.</td></tr>';
+        $output .= '<tr><td colspan="3" style="text-align:center;">No hay docentes registrados aún.</td></tr>';
     }
 
     $output .= '</tbody></table></div>';
@@ -865,22 +911,22 @@ function jules_shortcode_cursos($atts) {
     $tabla_nombre = $wpdb->prefix . 'jules_cursos';
     $resultados = $wpdb->get_results("SELECT * FROM $tabla_nombre ORDER BY id_curso DESC");
 
-    $output = '<div class="jules-cursos-display">';
+    $output = '<div class="jules-cursos-display jules-contenedor-responsive">';
     $output .= '<h3>Lista de Cursos</h3>';
-    $output .= '<table style="width:100%; border-collapse: collapse; border: 1px solid #ccc;">';
+    $output .= '<table class="jules-tabla-estilizada">';
     $output .= '<thead><tr>';
-    $output .= '<th style="border: 1px solid #ccc; padding: 8px;">Nombre del Curso</th>';
+    $output .= '<th>Nombre del Curso</th>';
     $output .= '</tr></thead>';
     $output .= '<tbody>';
 
     if ($resultados) {
         foreach ($resultados as $fila) {
             $output .= '<tr>';
-            $output .= '<td style="border: 1px solid #ccc; padding: 8px;">' . esc_html($fila->nombre_del_curso) . '</td>';
+            $output .= '<td>' . esc_html($fila->nombre_del_curso) . '</td>';
             $output .= '</tr>';
         }
     } else {
-        $output .= '<tr><td style="border: 1px solid #ccc; padding: 8px; text-align:center;">No hay cursos registrados aún.</td></tr>';
+        $output .= '<tr><td style="text-align:center;">No hay cursos registrados aún.</td></tr>';
     }
 
     $output .= '</tbody></table></div>';
@@ -902,24 +948,24 @@ function jules_shortcode_aulas($atts) {
         ORDER BY a.id_aula DESC";
     $resultados = $wpdb->get_results($query);
 
-    $output = '<div class="jules-aulas-display">';
+    $output = '<div class="jules-aulas-display jules-contenedor-responsive">';
     $output .= '<h3>Lista de Aulas</h3>';
-    $output .= '<table style="width:100%; border-collapse: collapse; border: 1px solid #ccc;">';
+    $output .= '<table class="jules-tabla-estilizada">';
     $output .= '<thead><tr>';
-    $output .= '<th style="border: 1px solid #ccc; padding: 8px;">Aula</th>';
-    $output .= '<th style="border: 1px solid #ccc; padding: 8px;">Pabellón</th>';
+    $output .= '<th>Aula</th>';
+    $output .= '<th>Pabellón</th>';
     $output .= '</tr></thead>';
     $output .= '<tbody>';
 
     if ($resultados) {
         foreach ($resultados as $fila) {
             $output .= '<tr>';
-            $output .= '<td style="border: 1px solid #ccc; padding: 8px;">' . esc_html($fila->aula) . '</td>';
-            $output .= '<td style="border: 1px solid #ccc; padding: 8px;">' . esc_html($fila->pabe_nom) . '</td>';
+            $output .= '<td>' . esc_html($fila->aula) . '</td>';
+            $output .= '<td>' . esc_html($fila->pabe_nom) . '</td>';
             $output .= '</tr>';
         }
     } else {
-        $output .= '<tr><td colspan="2" style="border: 1px solid #ccc; padding: 8px; text-align:center;">No hay aulas registradas aún.</td></tr>';
+        $output .= '<tr><td colspan="2" style="text-align:center;">No hay aulas registradas aún.</td></tr>';
     }
 
     $output .= '</tbody></table></div>';
@@ -934,22 +980,22 @@ function jules_shortcode_estados($atts) {
     $tabla_nombre = $wpdb->prefix . 'jules_estados';
     $resultados = $wpdb->get_results("SELECT * FROM $tabla_nombre ORDER BY id_estado DESC");
 
-    $output = '<div class="jules-estados-display">';
+    $output = '<div class="jules-estados-display jules-contenedor-responsive">';
     $output .= '<h3>Lista de Estados</h3>';
-    $output .= '<table style="width:100%; border-collapse: collapse; border: 1px solid #ccc;">';
+    $output .= '<table class="jules-tabla-estilizada">';
     $output .= '<thead><tr>';
-    $output .= '<th style="border: 1px solid #ccc; padding: 8px;">Estado</th>';
+    $output .= '<th>Estado</th>';
     $output .= '</tr></thead>';
     $output .= '<tbody>';
 
     if ($resultados) {
         foreach ($resultados as $fila) {
             $output .= '<tr>';
-            $output .= '<td style="border: 1px solid #ccc; padding: 8px;">' . esc_html($fila->estado) . '</td>';
+            $output .= '<td>' . esc_html($fila->estado) . '</td>';
             $output .= '</tr>';
         }
     } else {
-        $output .= '<tr><td style="border: 1px solid #ccc; padding: 8px; text-align:center;">No hay estados registrados aún.</td></tr>';
+        $output .= '<tr><td style="text-align:center;">No hay estados registrados aún.</td></tr>';
     }
 
     $output .= '</tbody></table></div>';
