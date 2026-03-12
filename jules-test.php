@@ -824,6 +824,140 @@ function jules_shortcode_notas($atts) {
     return $output;
 }
 add_shortcode('jules_notas', 'jules_shortcode_notas');
+
+// Función para el shortcode [jules_docentes]
+function jules_shortcode_docentes($atts) {
+    global $wpdb;
+    $tabla_nombre = $wpdb->prefix . 'jules_docentes';
+    $resultados = $wpdb->get_results("SELECT * FROM $tabla_nombre ORDER BY id_doce DESC");
+
+    $output = '<div class="jules-docentes-display">';
+    $output .= '<h3>Lista de Docentes</h3>';
+    $output .= '<table style="width:100%; border-collapse: collapse; border: 1px solid #ccc;">';
+    $output .= '<thead><tr>';
+    $output .= '<th style="border: 1px solid #ccc; padding: 8px;">Nombres</th>';
+    $output .= '<th style="border: 1px solid #ccc; padding: 8px;">Apellidos</th>';
+    $output .= '<th style="border: 1px solid #ccc; padding: 8px;">Cursos</th>';
+    $output .= '</tr></thead>';
+    $output .= '<tbody>';
+
+    if ($resultados) {
+        foreach ($resultados as $fila) {
+            $output .= '<tr>';
+            $output .= '<td style="border: 1px solid #ccc; padding: 8px;">' . esc_html($fila->nombres) . '</td>';
+            $output .= '<td style="border: 1px solid #ccc; padding: 8px;">' . esc_html($fila->apellidos) . '</td>';
+            $output .= '<td style="border: 1px solid #ccc; padding: 8px;">' . esc_html($fila->cursos) . '</td>';
+            $output .= '</tr>';
+        }
+    } else {
+        $output .= '<tr><td colspan="3" style="border: 1px solid #ccc; padding: 8px; text-align:center;">No hay docentes registrados aún.</td></tr>';
+    }
+
+    $output .= '</tbody></table></div>';
+
+    return $output;
+}
+add_shortcode('jules_docentes', 'jules_shortcode_docentes');
+
+// Función para el shortcode [jules_cursos]
+function jules_shortcode_cursos($atts) {
+    global $wpdb;
+    $tabla_nombre = $wpdb->prefix . 'jules_cursos';
+    $resultados = $wpdb->get_results("SELECT * FROM $tabla_nombre ORDER BY id_curso DESC");
+
+    $output = '<div class="jules-cursos-display">';
+    $output .= '<h3>Lista de Cursos</h3>';
+    $output .= '<table style="width:100%; border-collapse: collapse; border: 1px solid #ccc;">';
+    $output .= '<thead><tr>';
+    $output .= '<th style="border: 1px solid #ccc; padding: 8px;">Nombre del Curso</th>';
+    $output .= '</tr></thead>';
+    $output .= '<tbody>';
+
+    if ($resultados) {
+        foreach ($resultados as $fila) {
+            $output .= '<tr>';
+            $output .= '<td style="border: 1px solid #ccc; padding: 8px;">' . esc_html($fila->nombre_del_curso) . '</td>';
+            $output .= '</tr>';
+        }
+    } else {
+        $output .= '<tr><td style="border: 1px solid #ccc; padding: 8px; text-align:center;">No hay cursos registrados aún.</td></tr>';
+    }
+
+    $output .= '</tbody></table></div>';
+
+    return $output;
+}
+add_shortcode('jules_cursos', 'jules_shortcode_cursos');
+
+// Función para el shortcode [jules_aulas]
+function jules_shortcode_aulas($atts) {
+    global $wpdb;
+    $tabla_aulas = $wpdb->prefix . 'jules_aulas';
+    $tabla_pabellones = $wpdb->prefix . 'jules_pabellones';
+
+    $query = "
+        SELECT a.*, p.pabellon as pabe_nom
+        FROM $tabla_aulas a
+        LEFT JOIN $tabla_pabellones p ON a.id_pabe = p.id_pabe
+        ORDER BY a.id_aula DESC";
+    $resultados = $wpdb->get_results($query);
+
+    $output = '<div class="jules-aulas-display">';
+    $output .= '<h3>Lista de Aulas</h3>';
+    $output .= '<table style="width:100%; border-collapse: collapse; border: 1px solid #ccc;">';
+    $output .= '<thead><tr>';
+    $output .= '<th style="border: 1px solid #ccc; padding: 8px;">Aula</th>';
+    $output .= '<th style="border: 1px solid #ccc; padding: 8px;">Pabellón</th>';
+    $output .= '</tr></thead>';
+    $output .= '<tbody>';
+
+    if ($resultados) {
+        foreach ($resultados as $fila) {
+            $output .= '<tr>';
+            $output .= '<td style="border: 1px solid #ccc; padding: 8px;">' . esc_html($fila->aula) . '</td>';
+            $output .= '<td style="border: 1px solid #ccc; padding: 8px;">' . esc_html($fila->pabe_nom) . '</td>';
+            $output .= '</tr>';
+        }
+    } else {
+        $output .= '<tr><td colspan="2" style="border: 1px solid #ccc; padding: 8px; text-align:center;">No hay aulas registradas aún.</td></tr>';
+    }
+
+    $output .= '</tbody></table></div>';
+
+    return $output;
+}
+add_shortcode('jules_aulas', 'jules_shortcode_aulas');
+
+// Función para el shortcode [jules_estados]
+function jules_shortcode_estados($atts) {
+    global $wpdb;
+    $tabla_nombre = $wpdb->prefix . 'jules_estados';
+    $resultados = $wpdb->get_results("SELECT * FROM $tabla_nombre ORDER BY id_estado DESC");
+
+    $output = '<div class="jules-estados-display">';
+    $output .= '<h3>Lista de Estados</h3>';
+    $output .= '<table style="width:100%; border-collapse: collapse; border: 1px solid #ccc;">';
+    $output .= '<thead><tr>';
+    $output .= '<th style="border: 1px solid #ccc; padding: 8px;">Estado</th>';
+    $output .= '</tr></thead>';
+    $output .= '<tbody>';
+
+    if ($resultados) {
+        foreach ($resultados as $fila) {
+            $output .= '<tr>';
+            $output .= '<td style="border: 1px solid #ccc; padding: 8px;">' . esc_html($fila->estado) . '</td>';
+            $output .= '</tr>';
+        }
+    } else {
+        $output .= '<tr><td style="border: 1px solid #ccc; padding: 8px; text-align:center;">No hay estados registrados aún.</td></tr>';
+    }
+
+    $output .= '</tbody></table></div>';
+
+    return $output;
+}
+add_shortcode('jules_estados', 'jules_shortcode_estados');
+
 add_action('admin_notices', 'jules_mostrar_aviso_admin');
 
 // Función para procesar la subida, actualización o eliminación de AULAS
